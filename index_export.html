@@ -19,11 +19,91 @@
     }
   </script>
   <style>
-    body { background-color: #0c0c0e; color: #f3f4f6; }
+    /* Premium Dynamic Theme Custom Mappings */
+    :root {
+      --bg-app: #f4f6f9;
+      --bg-surface: #ffffff;
+      --border-color: #cbd5e1;
+      --border-light: #e2e8f0;
+      --text-main: #0f172a;
+      --text-sub: #475569;
+      --bg-input: #ffffff;
+      --bg-active-nav: #e2e8f0;
+      --text-active-nav: #0f172a;
+      --scrollbar-bg: #f4f6f9;
+      --scrollbar-thumb: #cbd5e1;
+    }
+    
+    .dark {
+      --bg-app: #080a0f;
+      --bg-surface: #11131a;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-light: rgba(255, 255, 255, 0.05);
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --bg-input: #0c0d12;
+      --bg-active-nav: #1e2025;
+      --text-active-nav: #ffffff;
+      --scrollbar-bg: #080a0f;
+      --scrollbar-thumb: #232736;
+    }
+
+    body { background-color: var(--bg-app); color: var(--text-main); transition: background-color 0.2s, color 0.15s; }
+    
+    /* Global Tailwind CDN class color overrides */
+    body.dark .bg-\[\#12141a\] { background-color: #11131a !important; }
+    body:not(.dark) .bg-\[\#12141a\] { background-color: #ffffff !important; }
+    body.dark .bg-\[\#12141a\]\/95 { background-color: rgba(17, 19, 26, 0.95) !important; }
+    body:not(.dark) .bg-\[\#12141a\]\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
+    body.dark .bg-\[\#12141a\]\/40 { background-color: rgba(17, 19, 26, 0.40) !important; }
+    body:not(.dark) .bg-\[\#12141a\]\/40 { background-color: rgba(244, 246, 249, 0.40) !important; }
+    body.dark .bg-\[\#12141a\]\/60 { background-color: rgba(17, 19, 26, 0.60) !important; }
+    body:not(.dark) .bg-\[\#12141a\]\/60 { background-color: rgba(255, 255, 255, 0.60) !important; }
+
+    body.dark .bg-neutral-900 { background-color: #11131a !important; }
+    body:not(.dark) .bg-neutral-900 { background-color: #ffffff !important; }
+
+    body.dark .bg-neutral-950 { background-color: #0c0d12 !important; }
+    body:not(.dark) .bg-neutral-950 { background-color: #e2e8f0 !important; }
+    body.dark .bg-neutral-950\/50 { background-color: rgba(12, 13, 18, 0.5) !important; }
+    body:not(.dark) .bg-neutral-950\/50 { background-color: rgba(226, 232, 240, 0.5) !important; }
+    body.dark .bg-neutral-950\/70 { background-color: rgba(12, 13, 18, 0.7) !important; }
+    body:not(.dark) .bg-neutral-950\/70 { background-color: rgba(226, 232, 240, 0.7) !important; }
+    body.dark .bg-neutral-950\/40 { background-color: rgba(12, 13, 18, 0.4) !important; }
+    body:not(.dark) .bg-neutral-950\/40 { background-color: rgba(226, 232, 240, 0.4) !important; }
+
+    body.dark .border-neutral-800 { border-color: rgba(255, 255, 255, 0.08) !important; }
+    body:not(.dark) .border-neutral-800 { border-color: #cbd5e1 !important; }
+    body.dark .border-neutral-850 { border-color: rgba(255, 255, 255, 0.05) !important; }
+    body:not(.dark) .border-neutral-850 { border-color: #e2e8f0 !important; }
+    body.dark .border-neutral-800\/60 { border-color: rgba(255, 255, 255, 0.05) !important; }
+    body:not(.dark) .border-neutral-800\/60 { border-color: #e2e8f0 !important; }
+    body.dark .border-neutral-850\/80 { border-color: rgba(255, 255, 255, 0.04) !important; }
+    body:not(.dark) .border-neutral-850\/80 { border-color: #e2e8f0 !important; }
+
+    body.dark .text-neutral-100 { color: #ffffff !important; }
+    body:not(.dark) .text-neutral-100 { color: #0f172a !important; }
+    body.dark .text-neutral-200 { color: #f1f5f9 !important; }
+    body:not(.dark) .text-neutral-200 { color: #1e293b !important; }
+    body.dark .text-neutral-300 { color: #cbd5e1 !important; }
+    body:not(.dark) .text-neutral-300 { color: #334155 !important; }
+    body.dark .text-neutral-400 { color: #94a3b8 !important; }
+    body:not(.dark) .text-neutral-400 { color: #475569 !important; }
+    body.dark .text-neutral-550 { color: #a0aec0 !important; }
+    body:not(.dark) .text-neutral-550 { color: #475569 !important; }
+    body.dark .text-neutral-500 { color: #64748b !important; }
+    body:not(.dark) .text-neutral-500 { color: #64748b !important; }
+
     ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: #0f1012; }
-    ::-webkit-scrollbar-thumb { background: #26272b; border-radius: 9px; }
-    .nav-btn-active { border-left: 2.5px solid #3b82f6; background-color: #1e2025; color: #ffffff !important; font-weight: 600; }
+    ::-webkit-scrollbar-track { background: var(--scrollbar-bg); }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 9px; }
+    
+    .nav-btn-active { 
+      border-left: 2.5px solid #3b82f6; 
+      background-color: var(--bg-active-nav) !important; 
+      color: var(--text-active-nav) !important; 
+      font-weight: 600; 
+    }
   </style>
 </head>
 <body class="font-sans antialiased text-neutral-200">
@@ -65,6 +145,10 @@
           <input type="text" oninput="handleGlobalSearch(this.value)" placeholder="Search tickers, profiles... (Cmd+K)" class="w-full bg-neutral-950 border border-neutral-850 text-neutral-200 text-xs rounded-xl py-1.5 pl-9 focus:border-blue-500 focus:outline-none">
         </div>
         <div class="flex items-center gap-3">
+          <!-- Theme Toggle Switcher (Bloomberg/Koyfin styling) -->
+          <button id="theme-toggle-standalone-btn" onclick="toggleThemeStandalone()" class="p-1.5 rounded-lg bg-neutral-950 hover:bg-neutral-900 text-neutral-400 hover:text-neutral-200 transition-colors flex items-center justify-center cursor-pointer" title="Toggle Theme">
+            <i id="theme-icon-standalone" data-lucide="sun" class="w-3.5 h-3.5 text-amber-500"></i>
+          </button>
           <button onclick="toggleOnboarding(true)" class="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Tour</button>
           <span class="text-[10px] text-neutral-400 font-mono bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-lg hidden sm:inline-flex items-center gap-1.5">
             <i data-lucide="user" class="w-3 h-3 text-blue-400"></i>rocky952s (Analyst)
@@ -368,7 +452,7 @@
                     const co = COMPANIES[id];
                     const badgeColor = co.aiSignal === 'positive' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : co.aiSignal === 'warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/15' : 'bg-red-500/10 text-red-400 border-red-500/20';
                     return `
-                      <div onclick="navigate('detail', '${co.id}')" class="bg-neutral-950/50 hover:bg-neutral-950 p-3 rounded-xl border border-neutral-850 hover:border-neutral-700 cursor-pointer transition-all flex flex-col justify-between h-32">
+                      <div onclick="navigate('detail', '${co.id}')" class="bg-neutral-950/50 hover:bg-neutral-950 p-3 rounded-xl cursor-pointer transition-all flex flex-col justify-between h-32">
                         <div class="flex justify-between items-start">
                           <div>
                             <span class="text-[11px] font-bold text-neutral-200">${co.ticker}</span>
@@ -386,17 +470,17 @@
               </div>
 
               <!-- Shortcut screeners -->
-              <div class="bg-[#12141a] border border-neutral-800 rounded-2xl p-5 space-y-3">
+              <div class="bg-[#12141a] rounded-2xl p-5 space-y-3">
                 <h3 class="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">Resume Automated Routines</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div onclick="navigate('screener')" class="p-3 bg-neutral-950/40 hover:bg-neutral-950 border border-neutral-850 rounded-xl cursor-pointer flex justify-between items-center hover:border-neutral-750">
+                  <div onclick="navigate('screener')" class="p-3 bg-neutral-950/40 hover:bg-neutral-950 rounded-xl cursor-pointer flex justify-between items-center">
                     <div>
                       <h4 class="text-xs font-bold text-neutral-200">Interactive Screener Model</h4>
                       <p class="text-[10px] text-neutral-500 mt-0.5">Filter by custom PE ranges & ROCE bounds</p>
                     </div>
                     <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-neutral-500"></i>
                   </div>
-                  <div onclick="navigate('compare')" class="p-3 bg-neutral-950/40 hover:bg-neutral-950 border border-neutral-850 rounded-xl cursor-pointer flex justify-between items-center hover:border-neutral-750">
+                  <div onclick="navigate('compare')" class="p-3 bg-neutral-950/40 hover:bg-neutral-950 rounded-xl cursor-pointer flex justify-between items-center">
                     <div>
                       <h4 class="text-xs font-bold text-neutral-200">Relative Comparables Matrix</h4>
                       <p class="text-[10px] text-neutral-500 mt-0.5">Evaluate up to four Indian conglomerates side by side</p>
@@ -1630,6 +1714,37 @@
       alert("✓ Filter settings saved: Maximum PE Limit " + currentScreenerPE + ".x and standard ROCE ROCE limit " + currentScreenerROCE + "% successfully added.");
     }
 
+    // Theme Standalone Handler (Bloomberg/Koyfin aesthetics)
+    function initThemeStandalone() {
+      const saved = localStorage.getItem('standalone_theme') || 'dark';
+      toggleThemeStandalone(saved === 'dark');
+    }
+
+    function toggleThemeStandalone(forceDark = null) {
+      const body = document.body;
+      const isDark = forceDark !== null ? forceDark : !body.classList.contains('dark');
+      
+      const icon = document.getElementById('theme-icon-standalone');
+      if (isDark) {
+        body.classList.add('dark');
+        localStorage.setItem('standalone_theme', 'dark');
+        if (icon) {
+          icon.setAttribute('data-lucide', 'sun');
+          icon.style.color = '#f59e0b';
+        }
+      } else {
+        body.classList.remove('dark');
+        localStorage.setItem('standalone_theme', 'light');
+        if (icon) {
+          icon.setAttribute('data-lucide', 'moon');
+          icon.style.color = '#2563eb';
+        }
+      }
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
     // Clock update ticking
     function tickClock() {
       const clock = document.getElementById('clock-tick');
@@ -1641,6 +1756,9 @@
 
     // Bootstrap local setup
     window.onload = () => {
+      // Initialize Theme
+      initThemeStandalone();
+
       // Check onboarding tour dismissal
       const dismissed = localStorage.getItem('investiq_tour_dismissed');
       if (!dismissed) {

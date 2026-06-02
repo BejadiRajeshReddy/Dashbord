@@ -1,1 +1,110 @@
 @import "tailwindcss";
+
+/* 
+  InvestIQ Professional Theme Overrides
+  Transforms standard Tailwind v4 variables for elegant Light & Dark modes,
+  matching elite equity research systems (like Koyfin / Bloomberg terminal).
+*/
+
+:root {
+  /* Universal font rules */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* =========================================================================
+     LIGHT THEME (PitchBook / Koyfin Light Platform style: Off-white canvas, white cards)
+     ========================================================================= */
+  --color-neutral-950: #f4f6f9;        /* Soft-white app background canvas */
+  --color-neutral-900: #ffffff;        /* Pure white for panels, cards, sidebar & sticky headers */
+  --color-neutral-850: #e2e8f0;        /* Precise, ultra-thin slate border lines */
+  --color-neutral-800: #cbd5e1;        /* Slightly stronger dividers and inputs */
+  --color-neutral-700: #94a3b8;        /* Active focus or borders outline */
+  --color-neutral-600: #475569;        /* Mid-tier slate descriptive text */
+  --color-neutral-500: #64748b;        /* Secondary captions and labels */
+  --color-neutral-450: #64748b;        /* Utility icons and timers */
+  --color-neutral-400: #334155;        /* Sub-headings body details */
+  --color-neutral-300: #1e293b;        /* Main subtitle highlights */
+  --color-neutral-250: #0f172a;        /* Card primary titles */
+  --color-neutral-200: #0f172a;        /* Content labels & inputs text */
+  --color-neutral-150: #1e293b;        /* Body sentences */
+  --color-neutral-100: #0f172a;        /* Absolute deep-slate primary headings */
+  --color-neutral-50: #fafafa;         /* Active state highlights background */
+  
+  /* Transparent adaptive overlays & opacity variants */
+  --color-blue-600\/15: rgba(37, 99, 235, 0.08);
+  --color-blue-600\/12: rgba(37, 99, 235, 0.08);
+  --color-blue-500\/25: rgba(37, 99, 235, 0.15);
+  --color-sky-400: #0284c7;
+
+  /* Custom scrollbar configurations */
+  --scrollbar-bg: #f4f6f9;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+}
+
+.dark {
+  /* =========================================================================
+     DARK THEME (Bloomberg / Koyfin refined Satin Midnight palette)
+     ========================================================================= */
+  --color-neutral-950: #080a0f;        /* Elegant deep satin midnight canvas base */
+  --color-neutral-900: #11131a;        /* High-density charcoal panels and sidecards */
+  --color-neutral-850: rgba(255, 255, 255, 0.05); /* Extremely soft, low-intensity thin borders */
+  --color-neutral-800: rgba(255, 255, 255, 0.08); /* Internal clean grids dividers */
+  --color-neutral-700: rgba(255, 255, 255, 0.14); /* Focused element borders */
+  --color-neutral-600: #7b849c;        /* Sleek grey descriptive info text */
+  --color-neutral-500: #94a3b8;        /* Cool steel captions & inactive tags */
+  --color-neutral-450: #a0aec0;        /* Timestamps & labels */
+  --color-neutral-400: #cbd5e1;        /* Crisp subheadings text */
+  --color-neutral-300: #f1f5f9;        /* Soft-white highlights */
+  --color-neutral-250: #f8fafc;        /* Main headers subtext */
+  --color-neutral-200: #f8fafc;        /* Main text readable body labels */
+  --color-neutral-150: #f8fafc;
+  --color-neutral-100: #ffffff;        /* High-contrast headings and metrics */
+  --color-neutral-50: #090b10;
+
+  /* Transparent dark adaptive overlays */
+  --color-blue-600\/15: rgba(59, 130, 246, 0.12);
+  --color-blue-600\/12: rgba(59, 130, 246, 0.10);
+  --color-blue-500\/25: rgba(59, 130, 246, 0.20);
+  --color-sky-400: #38bdf8;
+
+  /* Custom scrollbar configurations */
+  --scrollbar-bg: #080a0f;
+  --scrollbar-thumb: #232736;
+  --scrollbar-thumb-hover: #373e54;
+}
+
+/* =========================================================================
+   Universal resets & Transitions
+   ========================================================================= */
+* {
+  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbars inside pages */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+body {
+  background-color: var(--color-neutral-950);
+  color: var(--color-neutral-200);
+}
+
+/* Smooth micro interactions */
+.backdrop-blur-xs {
+  backdrop-filter: blur(4px);
+}

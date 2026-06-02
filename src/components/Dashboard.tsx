@@ -94,7 +94,7 @@ export default function Dashboard({
                 <div
                   key={co.id}
                   onClick={() => onNavigateToCompany(co.id)}
-                  className="bg-neutral-950/40 p-4 rounded-xl border border-neutral-850 hover:border-neutral-700 cursor-pointer transition-all hover:scale-[1.01] flex flex-col justify-between space-y-3"
+                  className="bg-neutral-950/40 p-4 rounded-xl cursor-pointer transition-all hover:scale-[1.01] flex flex-col justify-between space-y-3"
                 >
                   <div className="flex justify-between items-start">
                     <div>
@@ -116,7 +116,7 @@ export default function Dashboard({
           </div>
 
           {/* G2: Saved Screens Shortcuts */}
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 space-y-4">
+          <div className="bg-neutral-900 rounded-2xl p-5 space-y-4">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-sm font-bold text-[#f5f5f5] text-neutral-250">Saved Screener Shortcuts</h3>
@@ -144,7 +144,7 @@ export default function Dashboard({
                       onLoadSavedScreen(screen);
                       onNavigateToRoute('/analysis');
                     }}
-                    className="p-3.5 bg-neutral-950/40 border border-neutral-850 hover:border-neutral-700 rounded-xl cursor-pointer transition-all text-xs flex justify-between items-center"
+                    className="p-3.5 bg-neutral-950/40 hover:bg-neutral-950/60 rounded-xl cursor-pointer transition-all text-xs flex justify-between items-center"
                   >
                     <div>
                       <div className="font-semibold text-neutral-200">{screen.name}</div>
@@ -171,7 +171,7 @@ export default function Dashboard({
                 <div
                   key={item.company.id}
                   onClick={() => onNavigateToCompany(item.company.id)}
-                  className="p-3.5 bg-neutral-950/30 border border-neutral-850 hover:border-neutral-750 rounded-xl cursor-pointer transition-colors flex justify-between items-center gap-4 text-xs"
+                  className="p-3.5 bg-neutral-950/30 hover:bg-neutral-950/50 rounded-xl cursor-pointer transition-colors flex justify-between items-center gap-4 text-xs"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Bell, Sparkles, User, Calendar, Clock, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Search, Bell, Sparkles, User, Calendar, Clock, ArrowRight, ShieldAlert, Sun, Moon } from 'lucide-react';
 import { Company, SavedScreen } from './types';
 import { mockCompanies, DEFAULT_SAVED_SCREENS } from './data/mockData';
 
@@ -23,6 +23,24 @@ import AdminPanel from './components/AdminPanel';
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState('/dashboard');
   const [selectedCompanyId, setSelectedCompanyId] = useState('reliance');
+
+  // Interactive Theme management (Dark Mode toggle matching professional platforms)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('investiq_theme');
+    return saved !== 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      root.classList.remove('light');
+    } else {
+      root.classList.add('light');
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('investiq_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   // Command Palette trigger
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
@@ -208,10 +226,20 @@ export default function App() {
               <span>{formattedUTC}</span>
             </div>
 
+            {/* Dark/Light mode toggle switch (Bloomberg/Koyfin style) */}
+            <button
+              onClick={() => setIsDarkMode(prev => !prev)}
+              className="p-2 ml-1 rounded-xl bg-neutral-950 hover:bg-neutral-900 text-neutral-450 transition-all flex items-center justify-center cursor-pointer"
+              title="Toggle Theme"
+              aria-label="Toggle theme"
+            >
+              {isDarkMode ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-blue-600" />}
+            </button>
+
             <div className="h-4 w-[1px] bg-neutral-800 hidden lg:block" />
 
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-blue-600/15 border border-blue-500/25 flex items-center justify-center">
+              <div className="h-8 w-8 rounded-full bg-blue-600/12 border border-blue-500/25 flex items-center justify-center">
                 <User className="h-4 w-4 text-blue-400" />
               </div>
               <span className="text-xs font-medium text-neutral-300 hidden sm:block">rocky952s (Analyst)</span>
