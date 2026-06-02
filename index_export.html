@@ -1,0 +1,1654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InvestIQ - Standalone Equity Auditing Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0c0c0e; color: #f3f4f6; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0f1012; }
+    ::-webkit-scrollbar-thumb { background: #26272b; border-radius: 9px; }
+    .nav-btn-active { border-left: 2.5px solid #3b82f6; background-color: #1e2025; color: #ffffff !important; font-weight: 600; }
+  </style>
+</head>
+<body class="font-sans antialiased text-neutral-200">
+
+  <!-- Core Layout Context Wrapper -->
+  <div class="min-h-screen flex flex-col md:flex-row">
+    
+    <!-- Left Static Sidebar -->
+    <aside class="w-full md:w-60 bg-[#12141a]/95 border-b md:border-b-0 md:border-r border-neutral-800 flex flex-col shrink-0">
+      <div class="p-5 flex items-center justify-between border-b border-neutral-800/60">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="navigate('dashboard')">
+          <div class="h-6 w-6 bg-blue-600 rounded-md flex items-center justify-center font-bold text-xs text-white">IQ</div>
+          <span class="font-bold tracking-tight text-neutral-100 text-sm">InvestIQ Standalone</span>
+        </div>
+        <kbd class="text-[9px] font-mono border border-neutral-750 bg-neutral-950 text-neutral-500 px-1 py-0.5 rounded">Ctrl+K</kbd>
+      </div>
+
+      <nav class="flex-1 px-3 py-4 space-y-1" id="sidebar-nav">
+        <!-- Dyn. populated below -->
+      </nav>
+
+      <!-- Bottom Status Node -->
+      <div class="p-3.5 border-t border-neutral-850">
+        <div class="bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-850/80 flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+          <div class="flex items-center gap-1.5">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Online Archive</span>
+          </div>
+          <span class="text-neutral-500">UTC</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content Workspace -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="h-14 border-b border-neutral-800 bg-[#12141a]/60 px-6 flex items-center justify-between shrink-0">
+        <div class="relative w-full max-w-xs">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-3"></i>
+          <input type="text" oninput="handleGlobalSearch(this.value)" placeholder="Search tickers, profiles... (Cmd+K)" class="w-full bg-neutral-950 border border-neutral-850 text-neutral-200 text-xs rounded-xl py-1.5 pl-9 focus:border-blue-500 focus:outline-none">
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="toggleOnboarding(true)" class="text-[11px] text-neutral-400 hover:text-white flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Tour</button>
+          <span class="text-[10px] text-neutral-400 font-mono bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-lg hidden sm:inline-flex items-center gap-1.5">
+            <i data-lucide="user" class="w-3 h-3 text-blue-400"></i>rocky952s (Analyst)
+          </span>
+        </div>
+      </header>
+
+      <main class="flex-1 p-6 overflow-y-auto pb-24 md:pb-6 space-y-6">
+        <!-- Floating container that mounts different workspaces dynamic shells -->
+        <div id="workspace-viewport"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Command Palette Modal overlay -->
+  <div id="cmd-palette" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-start justify-center pt-24 hidden px-4">
+    <div class="bg-[#12141a] border border-neutral-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
+      <div class="p-3 border-b border-neutral-800 flex items-center gap-2">
+        <i data-lucide="search" class="w-4 h-4 text-neutral-400"></i>
+        <input type="text" id="cmd-search" oninput="renderPaletteList(this.value)" placeholder="Type company name or ticker..." class="w-full bg-transparent text-sm text-neutral-100 outline-none placeholder-neutral-500">
+        <button onclick="togglePalette(false)" class="text-xs text-neutral-500 hover:text-white">Esc</button>
+      </div>
+      <div id="cmd-list" class="max-h-60 overflow-y-auto divide-y divide-neutral-900/40 p-1"></div>
+    </div>
+  </div>
+
+  <!-- Guided Tour Component -->
+  <div id="onboarding-card" class="fixed bottom-6 right-6 z-40 max-w-sm w-full bg-[#12141a] border border-blue-500/30 rounded-2xl p-4 shadow-2xl hidden">
+    <!-- Rendered dynamically -->
+  </div>
+
+  <!-- Standalone Local Database & Framework Loader -->
+  <script>
+    // System Routes Config
+    const ROUTES = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'home', category: 'CORE' },
+      { id: 'companies', label: 'Companies Registry', icon: 'building', category: 'CORE' },
+      { id: 'compare', label: 'Compare Matrix', icon: 'arrow-right-left', category: 'CORE' },
+      { id: 'screener', label: 'Screener Engine', icon: 'sliders', category: 'INTELLIGENCE' },
+      { id: 'validation', label: 'Validation Engine', icon: 'shield-check', category: 'INTELLIGENCE' },
+      { id: 'valuation', label: 'DCF Workbench', icon: 'layout-grid', category: 'VALUATION' },
+      { id: 'unit-economics', label: 'Unit Economics', icon: 'settings', category: 'VALUATION' },
+      { id: 'research', label: 'Research Hub', icon: 'book-open', category: 'RESEARCH' },
+      { id: 'questions', label: 'Question Engine', icon: 'sparkles', category: 'RESEARCH' },
+      { id: 'reports', label: 'Reports Hub', icon: 'file-text', category: 'RESEARCH' },
+      { id: 'admin', label: 'Pipeline Admin', icon: 'terminal', category: 'ADMIN' },
+    ];
+
+    // Mapped Comprehensive Database matching mockData.ts
+    const COMPANIES = {
+      reliance: {
+        id: 'reliance', ticker: 'RELIANCE', name: 'Reliance Industries Limited', sector: 'Conglomerate / Energy', exchange: 'NSE',
+        price: 2434.50, changePercent: 1.45, marketCapCr: 1645000, peTtm: 24.8, roce: 11.5, revenueCagr3Y: 13.8, debtToEquity: 0.42,
+        aiSignal: 'warning', aiSignalSummary: 'Substantial capital expenditure in retail/telecom is pulling down FCF despite margin expansions. Filing mismatches in narrative vs. numbers detected in energy subsidy disclosures.',
+        anomalies: [
+          { id: 'rel-a1', title: 'Capital Commitment & Narrative Mismatch', category: 'Narrative', severity: 'medium', description: 'Mismatch in narrative (claiming self-funding completed) vs active numbers showing ₹12,000 Cr incremental revolving loans in Q4.', impact: 'Affects credibility of free cash flow projections.', resolved: false },
+          { id: 'rel-a2', title: 'Energy Subsidy Accounting Reclassification', category: 'Accounting', severity: 'high', description: ' subsidies on green-hydrogen inputs were listed under "Other Operating Income" instead of directly offsetting raw chemical expenses.', impact: 'Inflates gross margins by 115 bps while obscuring real operating expense lines.', resolved: false }
+        ],
+        financials: [
+          { period: 'Q4 FY25', revenueCr: 215400, profitCr: 18950, cashflowCr: 14200, operatingMargin: 16.4 },
+          { period: 'Q3 FY25', revenueCr: 208300, profitCr: 17800, cashflowCr: 13800, operatingMargin: 15.9 },
+          { period: 'Q2 FY25', revenueCr: 198900, profitCr: 17200, cashflowCr: 12500, operatingMargin: 15.2 },
+          { period: 'Q1 FY25', revenueCr: 201100, profitCr: 16800, cashflowCr: 11900, operatingMargin: 15.0 },
+          { period: 'FY24', revenueCr: 812000, profitCr: 69500, cashflowCr: 54000, operatingMargin: 15.4 },
+          { period: 'FY23', revenueCr: 715000, profitCr: 60200, cashflowCr: 48000, operatingMargin: 14.8 }
+        ],
+        unitEconomics: [
+          { label: 'Jio ARPU (Average Revenue Per User)', value: '₹181.7', trend: 'up' },
+          { label: 'Telecom Subscribers', value: '47.2 Cr', trend: 'up' },
+          { label: 'Retail Footprint Area', value: '7.8 Cr sqft', trend: 'up' },
+          { label: 'Refining Margin per barrel', value: '$9.4', trend: 'down' }
+        ]
+      },
+      tcs: {
+        id: 'tcs', ticker: 'TCS', name: 'Tata Consultancy Services Limited', sector: 'IT Services', exchange: 'NSE',
+        price: 3840.00, changePercent: 0.82, marketCapCr: 1404000, peTtm: 29.4, roce: 42.5, revenueCagr3Y: 10.2, debtToEquity: 0.02,
+        aiSignal: 'positive', aiSignalSummary: 'Industry-leading EBIT margins sustained at 26%. AI bookings represent $1.2B of TCV, leading full transition pipelines. High shareholder payouts secured by 98% cash-to-income conversion.',
+        anomalies: [],
+        financials: [
+          { period: 'Q4 FY25', revenueCr: 61230, profitCr: 12430, cashflowCr: 12100, operatingMargin: 26.2 },
+          { period: 'Q3 FY25', revenueCr: 60500, profitCr: 12050, cashflowCr: 11800, operatingMargin: 25.8 },
+          { period: 'Q2 FY25', revenueCr: 59600, profitCr: 11900, cashflowCr: 11500, operatingMargin: 25.5 },
+          { period: 'Q1 FY25', revenueCr: 58200, profitCr: 11400, cashflowCr: 11100, operatingMargin: 25.1 },
+          { period: 'FY24', revenueCr: 240800, profitCr: 46100, cashflowCr: 45200, operatingMargin: 25.6 },
+          { period: 'FY23', revenueCr: 225400, profitCr: 42100, cashflowCr: 41000, operatingMargin: 24.9 }
+        ],
+        unitEconomics: [
+          { label: 'Order Book TCV', value: '$13.2 Billion', trend: 'up' },
+          { label: 'IT Attrition Rate LTM', value: '11.8%', trend: 'down' },
+          { label: 'Utilization Level (ex-trainees)', value: '84.5%', trend: 'up' }
+        ]
+      },
+      infosys: {
+        id: 'infosys', ticker: 'INFY', name: 'Infosys Limited', sector: 'IT Services', exchange: 'NSE',
+        price: 1412.00, changePercent: -2.10, marketCapCr: 585000, peTtm: 22.4, roce: 35.8, revenueCagr3Y: 9.5, debtToEquity: 0.03,
+        aiSignal: 'negative', aiSignalSummary: 'Severe margin pressure from low-margin legacy renewals and deferred tech spend in North America. Generative AI revenue conversion delayed. Discrepancies in sub-contractor utilization.',
+        anomalies: [
+          { id: 'infy-a1', title: 'Sub-contractor Costs vs Narrative', category: 'Narrative', severity: 'high', description: 'Management assured subcontracting fell by 200 bps yet "Other manufacturing" rows grew ₹1,400 Cr.', impact: 'Masks operational overheads.', resolved: false },
+          { id: 'infy-a2', title: 'Unbilled Revenue Capitalization Rate', category: 'Accounting', severity: 'medium', description: 'Unbilled revenues rocketed 26% YoY while final billing lines only grew 4.4%.', impact: 'Future write-down vulnerabilities if client approvals delay.', resolved: false }
+        ],
+        financials: [
+          { period: 'Q4 FY25', revenueCr: 38100, profitCr: 6100, cashflowCr: 5800, operatingMargin: 20.1 },
+          { period: 'Q3 FY25', revenueCr: 37900, profitCr: 6210, cashflowCr: 5900, operatingMargin: 20.5 },
+          { period: 'Q2 FY25', revenueCr: 37100, profitCr: 6050, cashflowCr: 5500, operatingMargin: 20.3 },
+          { period: 'Q1 FY25', revenueCr: 36800, profitCr: 5980, cashflowCr: 5200, operatingMargin: 19.8 },
+          { period: 'FY24', revenueCr: 153670, profitCr: 26230, cashflowCr: 24100, operatingMargin: 20.7 },
+          { period: 'FY23', revenueCr: 146700, profitCr: 24120, cashflowCr: 22800, operatingMargin: 21.1 }
+        ],
+        unitEconomics: [
+          { label: 'Active Clients Count', value: '1,864', trend: 'flat' },
+          { label: 'H1B / Onsite Ratio', value: '41.2%', trend: 'flat' },
+          { label: 'Sub-contracting % Rev', value: '8.4%', trend: 'up' }
+        ]
+      },
+      itc: {
+        id: 'itc', ticker: 'ITC', name: 'ITC Limited', sector: 'FMCG / Diversified', exchange: 'NSE',
+        price: 432.15, changePercent: 1.12, marketCapCr: 538000, peTtm: 26.1, roce: 38.2, revenueCagr3Y: 8.9, debtToEquity: 0.01,
+        aiSignal: 'positive', aiSignalSummary: 'Paperboard and Agribusiness segment margins revive. FMCG core margins expanded 80 bps. Excellent dividend yield of 3.8% backed by extensive cigarette cash conversion ratios.',
+        anomalies: [],
+        financials: [
+          { period: 'Q4 FY25', revenueCr: 18100, profitCr: 5120, cashflowCr: 4900, operatingMargin: 36.8 },
+          { period: 'Q3 FY25', revenueCr: 17800, profitCr: 5040, cashflowCr: 4850, operatingMargin: 36.5 },
+          { period: 'Q2 FY25', revenueCr: 17200, profitCr: 4920, cashflowCr: 4700, operatingMargin: 35.9 },
+          { period: 'Q1 FY25', revenueCr: 16900, profitCr: 4800, cashflowCr: 4600, operatingMargin: 35.4 },
+          { period: 'FY24', revenueCr: 69800, profitCr: 20400, cashflowCr: 18900, operatingMargin: 35.8 },
+          { period: 'FY23', revenueCr: 65200, profitCr: 18700, cashflowCr: 17500, operatingMargin: 34.9 }
+        ],
+        unitEconomics: [
+          { label: 'Cigarettes Vol. Growth', value: '4.2%', trend: 'up' },
+          { label: 'FMCG Direct Reach', value: '2.5M Towns', trend: 'up' },
+          { label: 'Hotel Occupancy', value: '72.4%', trend: 'up' }
+        ]
+      },
+      hdfc: {
+        id: 'hdfc', ticker: 'HDFCBANK', name: 'HDFC Bank Limited', sector: 'Banking & Financials', exchange: 'NSE',
+        price: 1545.20, changePercent: -0.35, marketCapCr: 1175000, peTtm: 18.2, roce: 16.8, revenueCagr3Y: 22.5, debtToEquity: 1.15,
+        aiSignal: 'positive', aiSignalSummary: 'Post-merger Net Interest Margins stabilize at 3.9%. NIM compression has arrested, and credit costs are consistent under long-term averages. Provision coverage exceeds 75%.',
+        anomalies: [
+          { id: 'hdfc-a1', title: 'Deposit Cost Calculation Inconsistency', category: 'Filing', severity: 'low', description: 'Deposits funding rate footnoted at 6.2% but plotted at 6.4% in the Q2 investor chart.', impact: 'Formatting indexing typo. Static disclosure error.', resolved: true }
+        ],
+        financials: [
+          { period: 'Q4 FY25', revenueCr: 47200, profitCr: 16800, cashflowCr: 15200, operatingMargin: 42.1 },
+          { period: 'Q3 FY25', revenueCr: 46100, profitCr: 16300, cashflowCr: 14800, operatingMargin: 41.9 },
+          { period: 'Q2 FY25', revenueCr: 44900, profitCr: 15900, cashflowCr: 14200, operatingMargin: 41.2 },
+          { period: 'Q1 FY25', revenueCr: 43800, profitCr: 15200, cashflowCr: 13900, operatingMargin: 40.8 },
+          { period: 'FY24', revenueCr: 178500, profitCr: 64100, cashflowCr: 58000, operatingMargin: 41.5 },
+          { period: 'FY23', revenueCr: 142000, profitCr: 46000, cashflowCr: 42000, operatingMargin: 40.2 }
+        ],
+        unitEconomics: [
+          { label: 'Net Interest Margin (NIM)', value: '3.91%', trend: 'flat' },
+          { label: 'Gross NPA Ratio', value: '1.24%', trend: 'down' },
+          { label: 'CASA Ratio Percentage', value: '38.2%', trend: 'up' }
+        ]
+      }
+    };
+
+    const CONCALLS = {
+      reliance: {
+        title: "Reliance Q4 FY25 Webcast Takeaways",
+        summary: "Reliance detailed robust telecom additions, offset by refining crack spreads down to $9.4 per barrel. Capital investments entering a stabilization phase.",
+        qa: [
+          { q: "Explain the ₹12,000 Cr addition in short-term lines despite guidance that capex completed?", a: "This is a tactical credit line prefunding global fuel inventory curves, not structural leverage growth. It clears in 180 days.", sentiment: 'neutral' },
+          { q: "Are there IPO spins in digital sectors next year?", a: "We seek optional structuring but immediate focus is optimizing current digital investments.", sentiment: 'positive' }
+        ]
+      },
+      tcs: {
+        title: "TCS Q4 FY25 Webcast Takeaways",
+        summary: "Records an impressive set of figures with operating margins reaching 26.2%. Enterprise digitization pipeline bookings robust at $13.2B.",
+        qa: [
+          { q: "What segment of the AI pipeline constitutes scale deliveries vs pilot modules?", a: "Over 65% is long-term production deployment. Scaled integration commitments have commenced.", sentiment: 'positive' }
+        ]
+      },
+      infosys: {
+        title: "Infosys Q4 FY25 Webcast Takeaways",
+        summary: "Discretionary IT budgets squeezed in North American banks, leading to margin contractions and unbilled milestone accumulations.",
+        qa: [
+          { q: "Why did contractor payouts grow despite optimization roadmaps?", a: "Temporary expertise deficits in cybersecurity forced contractor absorption to safeguard delivery lanes.", sentiment: 'negative' }
+        ]
+      }
+    };
+
+    // Client Global States
+    let currentTab = 'dashboard';
+    let selectedDetailId = 'reliance'; // Deep Link Id
+    let activeProfileTab = 'ai'; // 'ai' | 'financials' | 'anomalies' | 'research'
+    let selectedCompareIds = ['reliance', 'tcs'];
+    let comparePeriod = 'Latest'; // 'Latest' | 'FY24' | 'FY23'
+    let currentScreenerPE = 30;
+    let currentScreenerROCE = 15;
+    let isPaletteOpen = false;
+    let onboardingStep = 0;
+    let savedScreenerScreens = JSON.parse(localStorage.getItem('investiq_saved_screens') || '[]');
+
+    // Question Packs Pack Database
+    let qpHistory = [
+      { id: 'qp-rel-1', companyId: 'reliance', companyName: 'Reliance Industries Limited', questions: [
+        { id: 'q1', text: 'Detail the amortization structure of the ₹12,000 Cr short-term lines.' },
+        { id: 'q2', text: 'What is the gross refining margin Outlook given global refining constraints?' }
+      ]}
+    ];
+
+    // Helper: Plot SVG Sparklines (Inline data vectors)
+    function generateSparklineHTML(data, color = '#3b82f6') {
+      const min = Math.min(...data);
+      const max = Math.max(...data);
+      const range = max - min || 1;
+      const w = 70;
+      const h = 20;
+      const points = data.map((v, i) => {
+        const x = (i / (data.length - 1)) * (w - 4) + 2;
+        const y = h - ((v - min) / range) * (h - 4) - 2;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      const endX = w - 2;
+      const endY = h - ((data[data.length - 1] - min) / range) * (h - 4) - 2;
+      
+      return `
+        <svg width="${w}" height="${h}" class="overflow-visible inline-block">
+          <polyline fill="none" stroke="${color}" stroke-width="1.8" points="${points}" />
+          <circle cx="${endX}" cy="${endY}" r="2" fill="${color}" />
+        </svg>
+      `;
+    }
+
+    // Initialize Navigation Side Rails
+    function renderSidebar() {
+      const parent = document.getElementById('sidebar-nav');
+      let html = '';
+      const categories = ['CORE', 'INTELLIGENCE', 'VALUATION', 'RESEARCH', 'ADMIN'];
+
+      categories.forEach(cat => {
+        html += `<span class="block px-3 text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest my-2 mt-4">${cat} AREA</span>`;
+        ROUTES.filter(r => r.category === cat).forEach(route => {
+          const isActive = currentTab === route.id || (route.id === 'companies' && currentTab === 'detail');
+          const classes = isActive ? 'nav-btn-active text-white' : 'text-neutral-400 hover:text-white hover:bg-neutral-800/40';
+          html += `
+            <button onclick="navigate('${route.id}')" class="w-full text-left py-1.5 px-3 rounded-lg text-xs flex items-center justify-between transition-colors ${classes}">
+              <span class="flex items-center gap-2"><i data-lucide="${route.icon}" class="w-3.5 h-3.5"></i> ${route.label}</span>
+              ${route.id === 'validation' ? '<span class="text-[9px] bg-amber-500/10 text-amber-500 px-1.5 py-0.2 rounded border border-amber-500/25">3 flags</span>' : ''}
+            </button>
+          `;
+        });
+      });
+      parent.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    // Dynamic Navigation Switcher
+    function navigate(tabId, detailId = null) {
+      currentTab = tabId;
+      if (detailId) selectedDetailId = detailId;
+      renderSidebar();
+      renderWorkspace();
+    }
+
+    function renderWorkspace() {
+      const container = document.getElementById('workspace-viewport');
+      
+      if (currentTab === 'dashboard') {
+        container.innerHTML = `
+          <!-- Header Banner -->
+          <div class="p-5 border border-neutral-850 bg-[#12141a]/60 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 class="text-base font-bold text-neutral-100 flex items-center gap-1.5">InvestIQ Auditing Terminus <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-mono">BSE / NSE Archive</span></h1>
+              <p class="text-xs text-neutral-400 mt-0.5">Analyst portal focused on corporate governance indicators, unbilled disclosures, and intrinsic estimates.</p>
+            </div>
+            <div class="px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-xl text-[10px] font-mono text-neutral-400 flex items-center gap-1">
+              <i data-lucide="clock" class="w-3 h-3 text-blue-400"></i> <span id="clock-tick">2026-06-02 12:00:00 UTC</span>
+            </div>
+          </div>
+
+          <!-- Market Indices -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 border border-neutral-850 bg-[#12141a]/40 p-4 rounded-xl font-mono text-xs">
+            <div class="flex items-center justify-between border-r border-neutral-800/80 pr-4">
+              <span class="text-neutral-500">NIFTY 50 (BSE)</span>
+              <strong class="text-neutral-100">21,840.15 <span class="text-emerald-500 ml-1">+1.12%</span></strong>
+            </div>
+            <div class="flex items-center justify-between md:px-4 border-r border-neutral-800/80">
+              <span class="text-neutral-500">SENSEX INDEX</span>
+              <strong class="text-neutral-100">71,980.40 <span class="text-emerald-500 ml-1">+0.95%</span></strong>
+            </div>
+            <div class="flex items-center justify-between md:pl-4">
+              <span class="text-neutral-500">AI DETECTED SIGNALS</span>
+              <strong class="text-amber-500 animate-pulse">6 anomalies live</strong>
+            </div>
+          </div>
+
+          <!-- Main Dashboard Split -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-6">
+              
+              <!-- Watchlist panel -->
+              <div class="bg-[#12141a] border border-neutral-800 rounded-2xl p-5 space-y-4">
+                <div class="flex justify-between items-center">
+                  <h3 class="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">My Monitored Stocks</h3>
+                  <span class="text-[9px] bg-neutral-950 text-neutral-500 px-2.5 py-0.5 rounded border border-neutral-850">3 coverage assets</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  ${['reliance', 'tcs', 'infosys'].map(id => {
+                    const co = COMPANIES[id];
+                    const badgeColor = co.aiSignal === 'positive' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : co.aiSignal === 'warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/15' : 'bg-red-500/10 text-red-400 border-red-500/20';
+                    return `
+                      <div onclick="navigate('detail', '${co.id}')" class="bg-neutral-950/50 hover:bg-neutral-950 p-3 rounded-xl border border-neutral-850 hover:border-neutral-700 cursor-pointer transition-all flex flex-col justify-between h-32">
+                        <div class="flex justify-between items-start">
+                          <div>
+                            <span class="text-[11px] font-bold text-neutral-200">${co.ticker}</span>
+                            <span class="block text-[9px] text-neutral-500 truncate max-w-[80px]">${co.sector}</span>
+                          </div>
+                          <span class="text-[8px] border px-1 py-0.1 rounded uppercase font-mono ${badgeColor}">${co.aiSignal}</span>
+                        </div>
+                        <div class="text-[10px] text-neutral-400 line-clamp-2 leading-relaxed italic bg-neutral-900/40 p-1.5 rounded border border-neutral-850/60 mt-2">
+                          ${co.aiSignalSummary}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+
+              <!-- Shortcut screeners -->
+              <div class="bg-[#12141a] border border-neutral-800 rounded-2xl p-5 space-y-3">
+                <h3 class="text-xs font-bold text-neutral-300 uppercase tracking-wider font-mono">Resume Automated Routines</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div onclick="navigate('screener')" class="p-3 bg-neutral-950/40 hover:bg-neutral-950 border border-neutral-850 rounded-xl cursor-pointer flex justify-between items-center hover:border-neutral-750">
+                    <div>
+                      <h4 class="text-xs font-bold text-neutral-200">Interactive Screener Model</h4>
+                      <p class="text-[10px] text-neutral-500 mt-0.5">Filter by custom PE ranges & ROCE bounds</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-neutral-500"></i>
+                  </div>
+                  <div onclick="navigate('compare')" class="p-3 bg-neutral-950/40 hover:bg-neutral-950 border border-neutral-850 rounded-xl cursor-pointer flex justify-between items-center hover:border-neutral-750">
+                    <div>
+                      <h4 class="text-xs font-bold text-neutral-200">Relative Comparables Matrix</h4>
+                      <p class="text-[10px] text-neutral-500 mt-0.5">Evaluate up to four Indian conglomerates side by side</p>
+                    </div>
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-neutral-500"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right side column news -->
+            <div class="space-y-6">
+              <div class="bg-[#12141a] border border-neutral-800 rounded-2xl p-5 space-y-3.5">
+                <h4 class="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest flex items-center gap-1.5"><i data-lucide="newspaper" class="w-3.5 h-3.5 text-blue-400"></i> Regulatory Inflow</h4>
+                <div class="space-y-3 divide-y divide-neutral-900/50">
+                  <div class="text-xs">
+                    <h5 class="font-bold text-neutral-200 leading-snug">SEBI proposes new disclosure frameworks for unbilled tech revenues</h5>
+                    <span class="text-[9px] font-mono text-neutral-500">Financial Express • 2h ago</span>
+                  </div>
+                  <div class="text-xs pt-2.5">
+                    <h5 class="font-bold text-neutral-200 leading-snug">Rural FMCG volumes rise in multi-year agritech deployment</h5>
+                    <span class="text-[9px] font-mono text-neutral-500">Economic Times • 1d ago</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      else if (currentTab === 'companies') {
+        container.innerHTML = `
+          <div class="p-5 bg-[#12141a]/60 border border-neutral-800 rounded-2xl">
+            <h2 class="text-base font-bold text-neutral-1050">NSE / BSE active coverage nodes</h2>
+            <p class="text-xs text-neutral-400">Search and audit active corporate indices across profitability standards.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-neutral-900/20 border border-neutral-850 rounded-xl">
+            <input type="text" id="inventory-search" oninput="filterRegistry()" placeholder="Filter name/ticker..." class="bg-neutral-950 border border-neutral-800 text-xs text-neutral-200 p-2 rounded-xl placeholder-neutral-500 focus:outline-none focus:border-blue-500">
+            <select id="sector-select" onchange="filterRegistry()" class="bg-neutral-950 border border-neutral-800 text-xs text-neutral-400 p-2 rounded-xl focus:outline-none">
+              <option value="All">All Sectors</option>
+              <option value="Energy">Energy</option>
+              <option value="IT Services">IT Services</option>
+              <option value="FMCG">FMCG</option>
+              <option value="Banking">Banking</option>
+            </select>
+            <select id="signal-select" onchange="filterRegistry()" class="bg-neutral-950 border border-neutral-800 text-xs text-neutral-400 p-2 rounded-xl focus:outline-none">
+              <option value="All">All Signals</option>
+              <option value="positive">Positive</option>
+              <option value="warning">Warning</option>
+              <option value="negative">Negative</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="registry-grid">
+            ${Object.values(COMPANIES).map(co => `
+              <div onclick="navigate('detail', '${co.id}')" data-name="${co.name.toLowerCase()}" data-ticker="${co.ticker.toLowerCase()}" data-sector="${co.sector}" data-signal="${co.aiSignal}" class="p-4 bg-[#12141a] border border-neutral-800 hover:border-neutral-700 rounded-2xl cursor-pointer transition-all flex flex-col justify-between h-44">
+                <div>
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <span class="text-[9px] font-mono text-neutral-400 bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-850">${co.exchange} List</span>
+                      <h3 class="text-sm font-bold text-neutral-200 mt-2">${co.ticker}</h3>
+                      <span class="text-[10px] text-neutral-500 truncate block max-w-[150px]">${co.name}</span>
+                    </div>
+                    <span class="text-[9px] px-2 py-0.2 rounded font-mono uppercase font-bold border ${co.aiSignal === 'positive' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : co.aiSignal === 'warning' ? 'bg-amber-500/10 text-amber-550 text-amber-500 border-amber-500/20' : 'bg-red-500/10 text-red-400 border-red-500/15'}">${co.aiSignal}</span>
+                  </div>
+                  <p class="text-[10px] text-neutral-400 italic line-clamp-2 mt-2 leading-relaxed">${co.aiSignalSummary}</p>
+                </div>
+                <div class="flex justify-between text-[10px] font-mono pt-3 border-t border-neutral-850 mt-2 text-neutral-400">
+                  <span>P/E: <strong class="text-neutral-200">${co.peTtm}x</strong></span>
+                  <span>ROCE: <strong class="text-neutral-200">${co.roce}%</strong></span>
+                  <span class="text-blue-400 font-bold hover:underline">Verify Profile →</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      else if (currentTab === 'detail') {
+        const co = COMPANIES[selectedDetailId];
+        const lastQ = co.financials[0];
+        const quartersChronological = [...co.financials].reverse();
+        const revenues = quartersChronological.map(f => f.revenueCr);
+        const profits = quartersChronological.map(f => f.profitCr);
+        
+        container.innerHTML = `
+          <!-- Header detail -->
+          <div class="bg-[#12141a] border border-neutral-800 rounded-2xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span onclick="navigate('companies')" class="text-[10px] font-mono font-bold text-blue-400 hover:underline cursor-pointer"><i data-lucide="chevron-left" class="w-3.5 h-3.5 inline"></i> Back to Archive</span>
+                  <span class="text-[9px] bg-neutral-950 text-neutral-500 border border-neutral-850 px-1.5 py-0.2 rounded uppercase">${co.exchange} listed</span>
+                </div>
+                <h1 class="text-xl font-bold text-neutral-100 uppercase mt-1.5">${co.ticker} <span class="text-neutral-450 font-medium">— ${co.name}</span></h1>
+                <p class="text-xs text-neutral-400">${co.sector}</p>
+              </div>
+
+              <div class="text-right">
+                <span class="text-[10px] font-mono text-neutral-500 block uppercase">Live price quote</span>
+                <div class="flex items-baseline md:justify-end gap-1.5">
+                  <span class="text-2xl font-mono font-bold text-neutral-100">₹${co.price.toFixed(2)}</span>
+                  <span class="text-xs font-mono font-bold ${co.changePercent >= 0 ? 'text-emerald-500' : 'text-red-500'}">
+                    ${co.changePercent >= 0 ? '+' : ''}${co.changePercent}%
+                  </span>
+                </div>
+                <span class="text-[9px] font-mono text-neutral-500 block">Delayed 15 mins</span>
+              </div>
+            </div>
+
+            <!-- Priority Stats -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3.5 border-t border-neutral-850">
+              <div class="bg-neutral-950/40 p-2.5 rounded-xl border border-neutral-850">
+                <span class="text-[9px] font-mono text-neutral-500 uppercase block">Market Capitalization</span>
+                <span class="text-xs font-bold text-neutral-100 block mt-0.5">₹${(co.marketCapCr / 10000).toFixed(2)} L Cr</span>
+              </div>
+              <div class="bg-neutral-950/40 p-2.5 rounded-xl border border-neutral-850">
+                <span class="text-[9px] font-mono text-neutral-500 uppercase block">P/E Ratio (TTM)</span>
+                <span class="text-xs font-bold text-neutral-100 block mt-0.5">${co.peTtm}x</span>
+              </div>
+              <div class="bg-neutral-950/40 p-2.5 rounded-xl border border-neutral-850">
+                <span class="text-[9px] font-mono text-neutral-500 uppercase block">ROCE Percentage</span>
+                <span class="text-xs font-bold text-neutral-100 block mt-0.5">${co.roce}%</span>
+              </div>
+              <div class="bg-neutral-950/40 p-2.5 rounded-xl border border-neutral-850">
+                <span class="text-[9px] font-mono text-neutral-500 uppercase block">Total Debt / Equity</span>
+                <span class="text-xs font-bold text-neutral-100 block mt-0.5">${co.debtToEquity}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Tabs -->
+          <div class="border-b border-neutral-800 flex gap-1 font-mono text-xs">
+            ${['ai', 'financials', 'anomalies', 'research'].map(tb => `
+              <button onclick="switchProfileTab('${tb}')" class="px-4 py-2 border-b-2 ${activeProfileTab === tb ? 'border-blue-500 text-white' : 'border-transparent text-neutral-450 hover:text-white'}">${tb.toUpperCase()} WORKSPACE</button>
+            `).join('')}
+          </div>
+
+          <div class="bg-[#12141a]/40 p-5 rounded-2xl border border-neutral-800" id="profile-tab-content">
+            <!-- Populated below -->
+          </div>
+        `;
+        renderProfileTabContents(co, revenues, profits);
+      }
+
+      else if (currentTab === 'compare') {
+        container.innerHTML = `
+          <!-- Header comparables -->
+          <div class="p-6 bg-[#12141a] border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <h2 class="text-base font-bold text-neutral-100 flex items-center gap-2"><i data-lucide="arrow-right-left" class="text-blue-500"></i> Mutually Monitored Comparables Matrix</h2>
+              <p class="text-xs text-neutral-400 mt-1">Side-by-side fundamental ratios, ROCE curves, and unbilled milestone schedules.</p>
+            </div>
+            <div class="flex p-0.5 bg-neutral-950 border border-neutral-800 rounded-xl">
+              ${['Latest', 'FY24', 'FY23'].map(p => `
+                <button onclick="toggleComparePeriod('${p}')" class="px-3 py-1 text-xs rounded-lg transition-colors font-semibold ${comparePeriod === p ? 'bg-blue-600 text-white' : 'text-neutral-500 hover:text-white'}">${p}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Compare Slot pickers -->
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            ${[0, 1, 2, 3].map(idx => {
+              const compId = selectedCompareIds[idx];
+              const co = compId ? COMPANIES[compId] : null;
+              return `
+                <div class="p-4 bg-[#12141a] border rounded-2xl flex flex-col justify-between h-32 relative ${co ? 'border-neutral-800 bg-[#12141a]' : 'border-dashed border-neutral-850 bg-neutral-950/20'}">
+                  ${co ? `
+                    <div class="flex justify-between items-start">
+                      <div>
+                        <span class="text-[9px] font-mono bg-neutral-800 px-1 py-0.1 rounded text-neutral-400 border border-neutral-700">Slot ${idx+1}</span>
+                        <h4 class="text-sm font-bold text-neutral-200 mt-2">${co.ticker}</h4>
+                        <span class="text-[10px] text-neutral-500 block truncate max-w-[120px]">${co.name}</span>
+                      </div>
+                      <button onclick="removeCompareSlot(${idx})" class="text-neutral-500 hover:text-red-400 bg-neutral-950 border border-neutral-800 p-0.5 rounded-lg"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                    </div>
+                    <div class="flex justify-between items-end border-t border-neutral-850 pt-2 text-[10px] font-mono text-neutral-400">
+                      <span>ROCE: <strong class="text-neutral-200">${co.roce}%</strong></span>
+                    </div>
+                  ` : `
+                    <div onclick="triggerCompareSearch(${idx})" class="w-full h-full flex flex-col justify-center items-center text-xs text-neutral-500 hover:text-neutral-300 cursor-pointer gap-1.5">
+                      <i data-lucide="plus" class="w-5 h-5 text-neutral-600"></i>
+                      <span>Add comparable</span>
+                    </div>
+                  `}
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Metrics Table Output -->
+          ${selectedCompareIds.length === 0 ? `
+            <div class="p-12 border border-dashed border-neutral-850 bg-neutral-950/25 text-center text-xs text-neutral-500 rounded-xl">
+              Please include at least one coverage asset slot above to compare ratios.
+            </div>
+          ` : `
+            <div class="bg-[#12141a] border border-neutral-800 rounded-xl overflow-hidden">
+              <div class="p-4 border-b border-neutral-800 bg-neutral-950/20 font-mono text-[10px] text-neutral-400 uppercase tracking-widest flex justify-between items-center">
+                <span>Ratios table comparables (${comparePeriod})</span>
+                <span class="text-neutral-500 font-sans normal-case text-[11px]">Formatted in standard Indian notations (Cr, Lakhs)</span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="font-mono text-[10px] text-neutral-500 tracking-wider bg-neutral-950/30 border-b border-neutral-850">
+                      <th class="p-3">Ratios Column</th>
+                      ${selectedCompareIds.map(id => {
+                        const co = COMPANIES[id];
+                        return `<th class="p-3 text-right max-w-[120px] truncate"><span class="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 mr-1.5"></span>${co?.ticker}</th>`;
+                      }).join('')}
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-neutral-850 font-medium">
+                    <tr>
+                      <td class="p-3 text-neutral-400">Market Price (INR)</td>
+                      ${selectedCompareIds.map(id => `<td class="p-3 text-right font-mono text-neutral-200">₹${COMPANIES[id]?.price.toLocaleString('en-IN')}</td>`).join('')}
+                    </tr>
+                    <tr>
+                      <td class="p-3 text-neutral-400">P/E Multiple (TTM)</td>
+                      ${selectedCompareIds.map(id => `<td class="p-3 text-right font-mono text-neutral-200">${COMPANIES[id]?.peTtm}x</td>`).join('')}
+                    </tr>
+                    <tr>
+                      <td class="p-3 text-neutral-400">Return on Capital (ROCE)</td>
+                      ${selectedCompareIds.map(id => `<td class="p-3 text-right font-mono text-neutral-200">${COMPANIES[id]?.roce}%</td>`).join('')}
+                    </tr>
+                    <tr>
+                      <td class="p-3 text-neutral-400">Total Debt to Equity</td>
+                      ${selectedCompareIds.map(id => `<td class="p-3 text-right font-mono text-neutral-200">${COMPANIES[id]?.debtToEquity}</td>`).join('')}
+                    </tr>
+                    <tr>
+                      <td class="p-3 text-neutral-400">Market Cap</td>
+                      ${selectedCompareIds.map(id => `<td class="p-3 text-right font-mono text-neutral-200">₹${(COMPANIES[id]?.marketCapCr / 10000).toFixed(2)} L Cr</td>`).join('')}
+                    </tr>
+                    <tr>
+                      <td class="p-3 text-neutral-400 font-sans">Revenue CAGR (3Yr)</td>
+                      ${selectedCompareIds.map(id => `<td class="p-3 text-right font-mono text-neutral-200">${COMPANIES[id]?.revenueCagr3Y}%</td>`).join('')}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            <!-- Beautiful self-contained SVG Polar radar chart model -->
+            <div class="p-5 bg-[#12141a] border border-neutral-800 rounded-2xl flex flex-col md:flex-row items-center gap-6">
+              <div class="flex-1 space-y-2">
+                <h4 class="text-xs font-bold text-neutral-200">Fundamental Polar Strength Spectrum</h4>
+                <p class="text-xs text-neutral-400 max-w-sm leading-relaxed">concentric pentagonal grid scaling ROCE %, inverse relative multiples, operating efficiency, net cash flow conversion index, and leverage safety indices.</p>
+              </div>
+              <div class="h-44 w-44 flex items-center justify-center shrink-0">
+                ${generateRadarSVG(selectedCompareIds)}
+              </div>
+            </div>
+          `}
+        `;
+        lucide.createIcons();
+      }
+
+      else if (currentTab === 'screener') {
+        container.innerHTML = `
+          <!-- Header components -->
+          <div class="p-5 bg-[#12141a]/60 border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <h2 class="text-base font-bold text-neutral-100 flex items-center gap-2"><i data-lucide="sliders" class="text-blue-500"></i> Corporate Screener Engine</h2>
+              <p class="text-xs text-neutral-400 mt-1">Tweak relative parameter guidelines in real time across listed Indian coverage books.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="handleSaveScreenerPreset()" class="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 border border-neutral-700 text-xs font-semibold rounded-xl flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> Save Screen</button>
+            </div>
+          </div>
+
+          <!-- Dynamic settings filters sliders -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#12141a] p-5 rounded-2xl border border-neutral-800">
+            <div class="space-y-3">
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-neutral-450 text-neutral-400 font-semibold uppercase font-mono text-[10px]">Max P/E Multiple Limit</span>
+                <span id="pe-limit-lbl" class="font-mono text-blue-500 text-sm font-semibold">${currentScreenerPE}.0x</span>
+              </div>
+              <input type="range" min="10" max="60" value="${currentScreenerPE}" oninput="updateScreenerLimit('pe', this.value)" class="w-full accent-blue-500 h-1.5 bg-neutral-950 rounded-lg appearance-none cursor-pointer">
+              <p class="text-[10px] text-neutral-500 font-mono">Accepts valuations below the designated bounds.</p>
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex justify-between items-center text-xs">
+                <span class="text-neutral-450 text-neutral-400 font-semibold uppercase font-mono text-[10px]">Min ROCE Return Standard</span>
+                <span id="roce-limit-lbl" class="font-mono text-emerald-500 text-sm font-semibold">${currentScreenerROCE}.0%</span>
+              </div>
+              <input type="range" min="5" max="50" value="${currentScreenerROCE}" oninput="updateScreenerLimit('roce', this.value)" class="w-full accent-emerald-500 h-1.5 bg-neutral-950 rounded-lg appearance-none cursor-pointer">
+              <p class="text-[10px] text-neutral-500 font-mono">Filters operations that exceed target return standards.</p>
+            </div>
+          </div>
+
+          <!-- Tabular Screener Output rows -->
+          <div class="pt-4 space-y-3">
+            <div class="flex justify-between items-center">
+              <h3 class="text-xs font-bold text-neutral-400 uppercase tracking-widest font-mono">Matched Coverage records</h3>
+              <span id="matched-count-text" class="text-xs text-emerald-400 font-mono font-bold">Matches calculated...</span>
+            </div>
+
+            <div class="bg-[#12141a] border border-neutral-850 rounded-xl overflow-hidden">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="font-mono text-[10px] text-neutral-500 uppercase tracking-wider bg-neutral-950/40 border-b border-neutral-850">
+                    <th class="p-3">Ticker</th>
+                    <th class="p-3">Company Name</th>
+                    <th class="p-3">P/E Ratio</th>
+                    <th class="p-3 text-right">ROCE %</th>
+                    <th class="p-3 text-right">Quarterly topline trajectory</th>
+                  </tr>
+                </thead>
+                <tbody id="screener-results" class="divide-y divide-neutral-900/60 font-medium">
+                  <!-- Populated below -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        applyScreenerCalculations();
+      }
+
+      else if (currentTab === 'validation') {
+        container.innerHTML = `
+          <div class="p-6 bg-[#12141a]/60 border border-neutral-800 rounded-2xl">
+            <h2 class="text-base font-bold text-neutral-100 flex items-center gap-2"><i data-lucide="shield-check" class="text-amber-500"></i> Forensic Validation Dashboard</h2>
+            <p class="text-xs text-neutral-400 mt-1">Continuous claims validation. Surfaces unbilled revenue variances, capitalization timelines discrepancies, and off-balance loan reclassifications.</p>
+          </div>
+
+          <div class="space-y-4">
+            ${Object.values(COMPANIES).filter(co => co.anomalies.length > 0).map(co => `
+              ${co.anomalies.map(an => `
+                <div class="p-4 bg-[#12141a] border border-neutral-800 rounded-2xl space-y-3 hover:border-neutral-700 transition-colors">
+                  <div class="flex justify-between items-start gap-3">
+                    <div class="flex items-center gap-2">
+                      <span onclick="navigate('detail', '${co.id}')" class="text-[9px] font-mono text-neutral-400 bg-neutral-950 border border-neutral-800 hover:border-blue-500 cursor-pointer px-1.5 py-0.5 rounded">${co.ticker}</span>
+                      <h4 class="text-xs font-semibold text-neutral-155 text-neutral-200">${an.title}</h4>
+                    </div>
+                    <span class="text-[8px] font-mono uppercase px-2 py-0.5 rounded-full font-bold ${an.severity === 'high' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/15'}">${an.severity} severity</span>
+                  </div>
+                  <p class="text-xs text-neutral-400 leading-relaxed max-w-2xl">${an.description}</p>
+                  <div class="p-3 bg-neutral-950/60 rounded-xl border border-neutral-850 flex items-center justify-between text-[11px] text-neutral-400">
+                    <span><strong class="text-[9px] font-mono uppercase text-neutral-500">Forensic impact:</strong> ${an.impact}</span>
+                    <span class="text-[9px] font-mono bg-neutral-900 border border-neutral-800 px-2 py-0.5 rounded text-neutral-500">continuous-check</span>
+                  </div>
+                </div>
+              `).join('')}
+            `).join('')}
+          </div>
+        `;
+        lucide.createIcons();
+      }
+
+      else if (currentTab === 'valuation') {
+        const coModel = COMPANIES[selectedDetailId];
+        // Load default state or saved DCF parameters per company
+        const valStorageKey = `investiq_val_model_${selectedDetailId}`;
+        const savedModel = JSON.parse(localStorage.getItem(valStorageKey) || 'null');
+        
+        const latestWacc = savedModel ? savedModel.wacc : (selectedDetailId==='reliance'?11.2:(selectedDetailId==='tcs'?9.5:(selectedDetailId==='infosys'?9.8:10.5)));
+        const latestGrowth1 = savedModel ? savedModel.g1 : (selectedDetailId==='reliance'?13.5:(selectedDetailId==='tcs'?10.0:(selectedDetailId==='infosys'?8.5:11.0)));
+        const latestGordon = savedModel ? savedModel.gTerm : 4.0;
+
+        container.innerHTML = `
+          <!-- Header DCF -->
+          <div class="p-6 bg-[#12141a]/95 border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-base font-bold text-neutral-100 flex items-center gap-2"><i data-lucide="layout-grid" class="text-emerald-500"></i> Dynamic DCF Workbench</h2>
+                <span class="text-[9px] bg-neutral-950 border border-neutral-850 px-2.5 py-0.5 rounded text-emerald-500 flex items-center gap-1 font-mono hover:underline"><span class="h-2 w-2 rounded-full bg-emerald-550 bg-emerald-500 animate-ping"></span> Persistent workspace active</span>
+              </div>
+              <p class="text-xs text-neutral-400">Tweak WACC parameters, Gordon terminals, and Stage 1 multipliers. Persistent browser saves.</p>
+            </div>
+
+            <div class="flex gap-2 shrink-0">
+              <select id="val-company-select" onchange="switchValuationTarget(this.value)" class="bg-neutral-900 border border-neutral-800 text-neutral-250 text-xs rounded-xl p-2 focus:outline-none focus:border-emerald-500">
+                ${Object.values(COMPANIES).map(c => `
+                  <option value="${c.id}" ${c.id === selectedDetailId ? 'selected' : ''}>${c.ticker} — ${c.name}</option>
+                `).join('')}
+              </select>
+              <button onclick="handleSaveDcfParameters()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:shadow-lg transition-all border border-emerald-500"><i data-lucide="save" class="w-3.5 h-3.5"></i> Save model</button>
+            </div>
+          </div>
+
+          <!-- Main DCF structure -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Parameters column -->
+            <div class="bg-[#12141a] p-5 rounded-2xl border border-neutral-800 space-y-5">
+              <span class="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest block border-b border-neutral-900 pb-2">DCF Forecast Bounds</span>
+              
+              <div class="space-y-2">
+                <div class="flex justify-between text-xs">
+                  <span class="text-neutral-400">weighted Cost of Capital (WACC)</span>
+                  <strong class="font-mono text-emerald-500" id="wacc-val">${latestWacc.toFixed(1)}%</strong>
+                </div>
+                <input type="range" min="6" max="18" step="0.1" value="${latestWacc}" oninput="updateDcfVariable('wacc', this.value)" class="w-full accent-emerald-500 cursor-pointer">
+              </div>
+
+              <div class="space-y-2">
+                <div class="flex justify-between text-xs">
+                  <span class="text-neutral-400">Stage 1 compound revenue CAGR (Yr 1-5)</span>
+                  <strong class="font-mono text-emerald-500" id="g1-val">${latestGrowth1.toFixed(1)}%</strong>
+                </div>
+                <input type="range" min="2" max="30" step="0.5" value="${latestGrowth1}" oninput="updateDcfVariable('g1', this.value)" class="w-full accent-emerald-500 cursor-pointer">
+              </div>
+
+              <div class="space-y-2">
+                <div class="flex justify-between text-xs">
+                  <span class="text-neutral-400">Terminal growth rate (Gordon g)</span>
+                  <strong class="font-mono text-emerald-500" id="gTerm-val">${latestGordon.toFixed(1)}%</strong>
+                </div>
+                <input type="range" min="0" max="6" step="0.1" value="${latestGordon}" oninput="updateDcfVariable('gTerm', this.value)" class="w-full accent-emerald-500 cursor-pointer">
+              </div>
+            </div>
+
+            <!-- Intrinsic outputs & Thesis -->
+            <div class="lg:col-span-2 space-y-6">
+              <div class="p-5 bg-neutral-950/40 rounded-2xl border border-neutral-850 flex items-center justify-between gap-4">
+                <div class="space-y-1">
+                  <span class="text-[9px] font-mono text-neutral-500 uppercase block">Determined Intrinsic Target estimate</span>
+                  <div class="text-3xl font-mono font-black text-neutral-100 flex items-center gap-1.5" id="val-fair-target">Calculating...</div>
+                  <span class="text-[10px] text-neutral-500 block">Relative to live market trading rates of ₹${coModel.price.toFixed(2)}</span>
+                </div>
+                <span id="val-discount-badge" class="text-xs font-mono font-bold px-3 py-1.5 border uppercase rounded-xl">Target check</span>
+              </div>
+
+              <div class="p-5 bg-neutral-900/10 rounded-2xl border border-neutral-800 space-y-3.5">
+                <h4 class="text-xs font-bold text-neutral-200 flex items-center gap-1.5"><i data-lucide="sparkles" class="text-amber-400 w-3.5 h-3.5"></i> Generated Investment Thesis Narrative</h4>
+                <p class="text-xs text-neutral-400 leading-relaxed italic border-l-2 border-stone-800/80 pl-3 font-medium text-stone-300" id="val-thesis-box">Generating custom summary parameters...</p>
+                <div class="flex justify-end gap-2 pt-2">
+                  <button onclick="restoreDcfBaseline()" class="text-[10px] text-neutral-500 hover:text-neutral-300 hover:underline"><i data-lucide="refresh-cw" class="w-3 h-3 inline"></i> Reset baselines</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        recalculateDcfModelValuation();
+        lucide.createIcons();
+      }
+
+      else if (currentTab === 'unit-economics') {
+        const co = COMPANIES[selectedDetailId];
+        container.innerHTML = `
+          <div class="p-5 bg-[#12141a] border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div>
+              <h2 class="text-base font-bold text-neutral-100">Specific Segment Operational Indicators</h2>
+              <p class="text-xs text-neutral-400 mt-0.5">Under-the-hood metrics tracking subscribers, average customer receipts, and capacity spreads.</p>
+            </div>
+            <select onchange="switchUnitEconomicsTarget(this.value)" class="bg-neutral-900 border border-neutral-800 text-neutral-250 text-xs rounded-xl p-2 focus:outline-none focus:border-pink-500">
+              ${Object.values(COMPANIES).map(c => `
+                <option value="${c.id}" ${c.id === selectedDetailId ? 'selected' : ''}>${c.ticker} — Operations</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            ${co.unitEconomics.map(ec => `
+              <div class="p-4 bg-[#12141a] border border-neutral-850 rounded-xl flex justify-between items-center h-24 hover:border-neutral-750 transition-colors">
+                <div>
+                  <span class="text-[9px] font-mono text-neutral-500 uppercase block">${ec.label}</span>
+                  <h4 class="text-xl font-bold font-mono text-neutral-200 mt-1.5">${ec.value}</h4>
+                </div>
+                <div class="${ec.trend === 'up' ? 'text-emerald-500 bg-emerald-500/10' : ec.trend === 'down' ? 'text-red-500 bg-red-500/10' : 'text-neutral-500 bg-neutral-950'} px-2 py-1 rounded font-mono text-xs font-bold uppercase border border-neutral-800/60">${ec.trend}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      else if (currentTab === 'research') {
+        const coCon = CONCALLS[selectedDetailId] || { title: "No analyst conference records found.", summary: "Currently undergoing manual re-indexing MCA folders.", qa: [] };
+        container.innerHTML = `
+          <div class="p-5 bg-[#12141a] border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div>
+              <h2 class="text-base font-bold text-neutral-100 uppercase flex items-center gap-1.5"><i data-lucide="book-open" class="text-blue-500"></i> Corporate Webcasts QA portal</h2>
+              <p class="text-xs text-neutral-400">Dialogue indexing mapped across sector analysts and executive representations.</p>
+            </div>
+            <select onchange="switchResearchTarget(this.value)" class="bg-neutral-900 border border-neutral-800 text-neutral-250 text-xs rounded-xl p-2.5 focus:outline-none">
+              ${['reliance', 'tcs', 'infosys'].map(id => `
+                <option value="${id}" ${id === selectedDetailId ? 'selected' : ''}>${COMPANIES[id].ticker} Webcast Summaries</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 bg-[#12141a] p-4 rounded-xl border border-neutral-800 space-y-3.5">
+              <span class="text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest block border-b border-neutral-900 pb-2">Webcast summary briefing</span>
+              <h3 class="text-xs font-bold text-neutral-200">${coCon.title}</h3>
+              <p class="text-xs text-neutral-400 leading-relaxed italic border-l border-stone-800 pl-2.5">${coCon.summary}</p>
+            </div>
+
+            <div class="lg:col-span-2 space-y-4">
+              <span class="text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest block">dialogues indexing</span>
+              ${coCon.qa.length === 0 ? `
+                <div class="p-6 text-center text-xs text-neutral-500 font-mono">No executive interactions indexed.</div>
+              ` : coCon.qa.map(item => `
+                <div class="bg-[#12141a]/60 border border-neutral-800 p-4 rounded-xl space-y-3 hover:border-neutral-750 transition-colors">
+                  <div class="space-y-1">
+                    <span class="text-[10px] text-blue-400 font-bold font-mono">ANALYST QUERY:</span>
+                    <p class="text-xs text-neutral-200 font-medium leading-relaxed">"${item.q}"</p>
+                  </div>
+                  <div class="space-y-1.5 pt-2.5 border-t border-neutral-850">
+                    <span class="text-[10px] text-emerald-400 font-bold font-mono">CORPORATE REPRESENTATION RESPONSES:</span>
+                    <p class="text-xs text-neutral-400 italic leading-relaxed">"${item.a}"</p>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+
+      else if (currentTab === 'questions') {
+        const co = COMPANIES[selectedDetailId];
+        const pack = qpHistory.find(pq => pq.companyId === selectedDetailId);
+        container.innerHTML = `
+          <!-- Header packs -->
+          <div class="p-5 bg-[#12141a] border border-neutral-800 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div>
+              <h2 class="text-base font-bold text-neutral-100 flex items-center gap-2"><i data-lucide="sparkles" class="text-sky-400"></i> Corporate call Q&A Packer</h2>
+              <p class="text-xs text-neutral-400">Formulate and order targeted pre-call question packs for upcoming corporate briefings.</p>
+            </div>
+            
+            <div class="flex gap-2">
+              <select onchange="switchQuestionTarget(this.value)" class="bg-neutral-900 border border-neutral-800 text-neutral-250 text-xs rounded-xl p-2 focus:outline-none">
+                ${Object.values(COMPANIES).map(c => `<option value="${c.id}" ${c.id === selectedDetailId ? 'selected' : ''}>${c.ticker} Pack</option>`).join('')}
+              </select>
+              <button onclick="copyQuestionPackClipboard()" class="px-3.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5 hover:shadow-lg transition-all border border-blue-500 shrink-0"><i data-lucide="copy" class="w-3.5 h-3.5"></i> Export Clipboard</button>
+            </div>
+          </div>
+
+          <!-- Dynamic formulation grid -->
+          <div class="bg-[#12141a] p-5 rounded-2xl border border-neutral-800 space-y-4">
+            <span class="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest block">custom pre-call indices</span>
+            <div id="qp-formulation-deck" class="space-y-3">
+              <!-- Rendered below -->
+            </div>
+
+            <!-- Pre-pack dynamic creation input -->
+            <div class="flex gap-2 pt-2 border-t border-neutral-900/60 flex-col sm:flex-row">
+              <input type="text" id="new-query-input" placeholder="Formulate new quantitative query (e.g. unbilled timeline amortization expectations...) " class="bg-neutral-950 border border-neutral-850 rounded-xl text-neutral-250 p-2.5 w-full text-xs placeholder-neutral-550 focus:outline-none focus:border-blue-500">
+              <button onclick="addNewCustomQuestion()" class="bg-neutral-800 hover:bg-neutral-750 text-neutral-150 border border-neutral-700 hover:text-white font-semibold text-xs px-4 py-2.5 rounded-xl shrink-0">Add query</button>
+            </div>
+          </div>
+        `;
+        renderQuestionPackFormulation(pack);
+        lucide.createIcons();
+      }
+
+      else if (currentTab === 'reports') {
+        container.innerHTML = `
+          <div class="p-6 bg-[#12141a]/60 border border-neutral-800 rounded-2xl">
+            <h2 class="text-base font-bold text-neutral-100 flex items-center gap-1.5"><i data-lucide="file-text" class="text-indigo-400"></i> Corporate Audit statement downloads</h2>
+            <p class="text-xs text-neutral-400 mt-1">Download raw Ind-AS filings and mapped unbilled receivables spreadsheets.</p>
+          </div>
+
+          <div class="bg-[#12141a] p-5 rounded-2xl border border-neutral-800 space-y-3">
+            <span class="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-widest block border-b border-neutral-900 pb-2">Active filing packages</span>
+            
+            ${['reliance', 'tcs', 'infosys'].map(id => {
+              const co = COMPANIES[id];
+              return `
+                <div class="p-3.5 bg-neutral-950/40 hover:bg-neutral-950 border border-neutral-850 hover:border-neutral-700/60 rounded-xl flex justify-between items-center transition-colors text-xs gap-4">
+                  <div>
+                    <h4 class="font-bold text-neutral-200">${co.ticker} - Audited compliance Statement Ind-AS</h4>
+                    <p class="text-[10px] text-neutral-500 mt-0.5">${co.sector} • FY25 Financial Statement</p>
+                  </div>
+                  <button onclick="handleDownloadAuditStatementSim(this)" class="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 border border-neutral-700 font-semibold text-xs rounded-xl flex items-center gap-1 shrink-0"><i data-lucide="download" class="w-3.5 h-3.5"></i> Download Statement</button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        lucide.createIcons();
+      }
+
+      else if (currentTab === 'admin') {
+        container.innerHTML = `
+          <div class="p-5 bg-linear-to-r from-neutral-900 to-neutral-950 border border-neutral-800 rounded-2xl">
+            <h2 class="text-base font-bold text-neutral-100 flex items-center gap-2"><i data-lucide="terminal" class="text-neutral-550 w-5 h-5 text-neutral-400"></i> Pipeline Operations Admin</h2>
+            <p class="text-xs text-neutral-400 mt-1">Technical crawler tracking, iXBRL pipeline mappings integrity, and raw disclosures indexing.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 space-y-4">
+              <div class="bg-[#12141a] p-5 rounded-2xl border border-neutral-800 space-y-4">
+                <span class="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block">MCA iXBRL ingestion parser</span>
+                <p class="text-xs text-neutral-400">Simulate background MCA taxonomic scrapers to update local memory caches immediately.</p>
+                
+                <div class="border-2 border-dashed border-neutral-800 bg-neutral-950/45 text-center p-8 rounded-xl flex flex-col items-center justify-center space-y-2 cursor-pointer hover:border-neutral-700 transition-colors">
+                  <i data-lucide="upload-cloud" class="w-8 h-8 text-neutral-500"></i>
+                  <span class="text-xs text-neutral-300 font-bold block">Choose iXBRL compliant corporate statements package</span>
+                  <span class="text-[10.5px] text-neutral-500 font-mono">Supports multi-sheets Excel or Regulatory MCA compliant PDF datasets</span>
+                </div>
+
+                <button onclick="simulateInboundIngest()" class="w-full py-2 bg-neutral-800 hover:bg-neutral-750 text-xs font-semibold rounded-xl border border-neutral-700 transition-colors">Launch Ingestion Pipelines</button>
+                <p id="ingestion-status-log" class="text-xs text-center font-mono text-emerald-400 hidden"></p>
+              </div>
+            </div>
+
+            <!-- Real-time scroll logger feeds -->
+            <div class="bg-[#12141a] p-5 rounded-2xl border border-neutral-800 space-y-3 shrink-0 h-80 flex flex-col">
+              <span class="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block border-b border-neutral-900 pb-2">Active logging telemetry</span>
+              <div class="bg-neutral-950/80 p-3 rounded-xl font-mono text-[9.5px] text-neutral-450 leading-relaxed overflow-y-auto space-y-1.5 flex-1 select-none">
+                <p><span class="text-neutral-500">[08:12:00]</span> Scraper node online. checking BSE listings...</p>
+                <p><span class="text-neutral-500">[08:12:05]</span> Found 12 disclosures. Ingesting TCS footnote mappings...</p>
+                <p><span class="text-neutral-500">[08:14:15]</span> Compiling unbilled reserves tables Q4 reli...</p>
+                <p><span class="text-neutral-500">[08:15:00]</span> Mapped 2,410 cell compliance rows. Status: green.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        lucide.createIcons();
+      }
+    }
+
+    // Modal company tabs content populator
+    function renderProfileTabContents(co, revenues, profits) {
+      const parent = document.getElementById('profile-tab-content');
+      
+      if (activeProfileTab === 'ai') {
+        parent.innerHTML = `
+          <div class="space-y-4">
+            <div class="p-4 bg-blue-500/5 rounded-xl border border-blue-500/20 space-y-2">
+              <h3 class="text-xs font-bold text-neutral-200 flex items-center gap-1.5"><i data-lucide="sparkles" class="text-amber-400 w-3.5 h-3.5"></i> AI Forensic Insight Synopsis</h3>
+              <p class="text-xs text-neutral-200 leading-relaxed italic border-l-2 border-stone-800 pl-3">${co.aiSignalSummary}</p>
+            </div>
+
+            <div class="space-y-1 text-xs">
+              <span class="text-[10px] font-mono uppercase text-neutral-550 text-neutral-500 tracking-wider">Discrepancy Rationale guidelines</span>
+              <p class="text-neutral-400 leading-relaxed max-w-2xl mt-1.5">Unbilled revenues represent contracts completed without billing certification. InvestIQ correlates claims of structural optimizations against absolute sub-contracting ledger increases.</p>
+            </div>
+          </div>
+        `;
+      }
+
+      else if (activeProfileTab === 'financials') {
+        parent.innerHTML = `
+          <div class="space-y-5">
+            <span class="text-[10px] font-mono uppercase text-neutral-500 tracking-wider block border-b border-neutral-900 pb-2">Multi-Year Operating metrics (Chronological sparklines)</span>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="p-3 bg-neutral-950/40 rounded-xl border border-neutral-850 flex items-center justify-between">
+                <div>
+                  <span class="text-[9px] font-mono text-neutral-500 block uppercase">Operating Revenues CAGR</span>
+                  <h4 class="text-sm font-bold text-neutral-200 font-mono mt-1">${co.revenueCagr3Y}%</h4>
+                </div>
+                <div>${generateSparklineHTML(revenues, '#3b82f6')}</div>
+              </div>
+
+              <div class="p-3 bg-neutral-950/40 rounded-xl border border-neutral-850 flex items-center justify-between">
+                <div>
+                  <span class="text-[9px] font-mono text-neutral-500 block uppercase">Net Profit indices</span>
+                  <h4 class="text-sm font-bold text-neutral-200 font-mono mt-1">${co.roce}% ROCE</h4>
+                </div>
+                <div>${generateSparklineHTML(profits, '#10b981')}</div>
+              </div>
+            </div>
+
+            <!-- Collapsible Balance Sheet Accordions -->
+            <div class="space-y-2 pt-3">
+              <div class="bg-neutral-950 border border-neutral-800/60 rounded-xl overflow-hidden text-xs">
+                <button onclick="toggleFilingAccordion('bs-acc')" class="w-full text-left p-3 flex justify-between items-center font-semibold hover:bg-neutral-900">
+                  <span>Balance Sheet disclosure details (Lease Liabilities vs Capex)</span>
+                  <i data-lucide="chevron-down" class="w-4 h-4 text-neutral-450"></i>
+                </button>
+                <div id="bs-acc" class="p-3.5 bg-neutral-900/10 border-t border-neutral-900 text-neutral-400 hidden leading-relaxed space-y-2">
+                  <p>Annual reported disclosures contain capital commitments that deviate from management's intermediate verbal guidance summaries. Audited footnotes reveal unbilled work in progress capitalization variables.</p>
+                </div>
+              </div>
+
+              <div class="bg-neutral-950 border border-neutral-800/60 rounded-xl overflow-hidden text-xs">
+                <button onclick="toggleFilingAccordion('subs-acc')" class="w-full text-left p-3 flex justify-between items-center font-semibold hover:bg-neutral-900">
+                  <span>Tax Subsidies & Mapped Operational Classifications</span>
+                  <i data-lucide="chevron-down" class="w-4 h-4 text-neutral-450"></i>
+                </button>
+                <div id="subs-acc" class="p-3.5 bg-neutral-900/10 border-t border-neutral-900 text-neutral-400 hidden leading-relaxed space-y-2">
+                  <p>Tax allowances allocated by central Indian bodies are frequently reclassified into miscellaneous operate streams rather than offsetting underlying direct chemical processing expenses.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      else if (activeProfileTab === 'anomalies') {
+        const list = co.anomalies;
+        parent.innerHTML = `
+          <div class="space-y-3">
+            <span class="text-[10px] font-mono uppercase text-neutral-500 tracking-wider block">continuous checks alerts board</span>
+            ${list.length === 0 ? `
+              <div class="p-6 border border-dashed border-neutral-850 rounded-xl text-center text-xs text-neutral-500 bg-neutral-950/20 font-mono">
+                No compliance issues flagged. Forensic scores: 95+ (Outstanding Integrity)
+              </div>
+            ` : list.map(an => `
+              <div class="p-3.5 bg-neutral-950/40 border border-neutral-850 rounded-xl space-y-2 hover:border-neutral-750 transition-colors">
+                <div class="flex justify-between text-xs font-semibold">
+                  <span class="text-neutral-200">${an.title}</span>
+                  <span class="text-[9px] uppercase font-mono px-2 py-0.1 rounded border ${an.severity === 'high' ? 'bg-red-500/10 text-red-500 border-red-500/30' : 'bg-amber-500/10 text-amber-500 border-amber-500/15'}">${an.severity}</span>
+                </div>
+                <p class="text-[11px] text-neutral-400 leading-relaxed">${an.description}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      else if (activeProfileTab === 'research') {
+        const coCon = CONCALLS[selectedDetailId];
+        parent.innerHTML = `
+          <div class="space-y-3">
+            <span class="text-[10px] font-mono uppercase text-neutral-500 tracking-wider block border-b border-neutral-900 pb-2">Quarterly Briefings Key Takeaways</span>
+            ${!coCon ? `
+              <div class="p-6 text-center text-xs text-neutral-500 font-mono">No executive takeaways indexed for this target node.</div>
+            ` : `
+              <h4 class="text-xs font-bold text-neutral-200">${coCon.title}</h4>
+              <p class="text-xs text-neutral-400 bg-neutral-950/50 p-3 rounded-lg border border-neutral-850 border-l-2 border-l-blue-500 italic leading-relaxed">${coCon.summary}</p>
+            `}
+          </div>
+        `;
+      }
+      lucide.createIcons();
+    }
+
+    // Manage tab changes on Company Details profile
+    function switchProfileTab(tb) {
+      activeProfileTab = tb;
+      navigate('detail');
+    }
+
+    // Collapsible accordion triggers for balance sheets
+    function toggleFilingAccordion(id) {
+      const element = document.getElementById(id);
+      if (element.classList.contains('hidden')) {
+        element.classList.remove('hidden');
+      } else {
+        element.classList.add('hidden');
+      }
+    }
+
+    // Dynamic screener bounds changes
+    function updateScreenerLimit(metric, val) {
+      if (metric === 'pe') {
+        currentScreenerPE = val;
+        document.getElementById('pe-limit-lbl').innerText = val + '.0x';
+      } else if (metric === 'roce') {
+        currentScreenerROCE = val;
+        document.getElementById('roce-limit-lbl').innerText = val + '.0%';
+      }
+      applyScreenerCalculations();
+    }
+
+    function applyScreenerCalculations() {
+      const parent = document.getElementById('screener-results');
+      let count = 0;
+      let html = '';
+
+      Object.values(COMPANIES).forEach(co => {
+        if (co.peTtm <= currentScreenerPE && co.roce >= currentScreenerROCE) {
+          count++;
+          const quartersChronological = [...co.financials].reverse();
+          const limitRevenues = quartersChronological.map(f => f.revenueCr);
+          
+          html += `
+            <tr onclick="navigate('detail', '${co.id}')" class="hover:bg-neutral-900/40 cursor-pointer">
+              <td class="p-3 text-blue-400 font-bold font-mono text-[11px]">${co.ticker}</td>
+              <td class="p-3 text-neutral-250 truncate block max-w-[170px] mt-1.5">${co.name}</td>
+              <td class="p-3 font-mono text-neutral-300">${co.peTtm}x</td>
+              <td class="p-3 text-right font-mono text-emerald-400 font-semibold">${co.roce}%</td>
+              <td class="p-3 text-right">${generateSparklineHTML(limitRevenues, '#10b981')}</td>
+            </tr>
+          `;
+        }
+      });
+
+      parent.innerHTML = html;
+      document.getElementById('matched-count-text').innerText = count + ' corporate nodes matched';
+    }
+
+    // Comparative Slot Triggers
+    function removeCompareSlot(idx) {
+      selectedCompareIds.splice(idx, 1);
+      navigate('compare');
+    }
+
+    function triggerCompareSearch(idx) {
+      // Prompt command palette to open and point results directly here
+      togglePalette(true);
+    }
+
+    function toggleComparePeriod(period) {
+      comparePeriod = period;
+      navigate('compare');
+    }
+
+    // Dynamic multi-stage DCF algorithm
+    function updateDcfVariable(variable, val) {
+      document.getElementById(variable + '-val').innerText = parseFloat(val).toFixed(1) + (variable==='pe'?'x':'%');
+      recalculateDcfModelValuation();
+    }
+
+    function recalculateDcfModelValuation() {
+      const co = COMPANIES[selectedDetailId];
+      // Gather dynamic slider inputs
+      const wacc = parseFloat(document.querySelector('input[type="range"][min="6"]') ? document.querySelector('input[type="range"][min="6"]').value : (selectedDetailId==='reliance'?11.2:(selectedDetailId==='tcs'?9.5:(selectedDetailId==='infosys'?9.8:10.5))));
+      const g1 = parseFloat(document.querySelector('input[type="range"][min="2"]') ? document.querySelector('input[type="range"][min="2"]').value : (selectedDetailId==='reliance'?13.5:(selectedDetailId==='tcs'?10.0:(selectedDetailId==='infosys'?8.5:11.0))));
+      const gTerm = parseFloat(document.querySelector('input[type="range"][min="0"][max="6"]') ? document.querySelector('input[type="range"][min="0"][max="6"]').value : 4.0);
+
+      const netProfit = co.financials[4]?.profitCr || 15000;
+      const r = wacc / 100;
+      const g1_rate = g1 / 100;
+      const terminalG_rate = gTerm / 100;
+
+      let sumCf = 0;
+      let tempCf = netProfit;
+
+      for (let yr = 1; yr <= 5; yr++) {
+        tempCf = tempCf * (1 + g1_rate);
+        sumCf += tempCf / Math.pow(1 + r, yr);
+      }
+
+      for (let yr = 6; yr <= 10; yr++) {
+        tempCf = tempCf * (1 + 0.05); // Stage 2 flat revert
+        sumCf += tempCf / Math.pow(1 + r, yr);
+      }
+
+      const terminalValue = (tempCf * (1 + terminalG_rate)) / (r - terminalG_rate > 0 ? r - terminalG_rate : 0.05);
+      const discountedTerminalValue = terminalValue / Math.pow(1 + r, 10);
+      const totalEquityWorthCr = sumCf + discountedTerminalValue;
+      const sharesDivisor = (co.marketCapCr / co.price) || 500;
+      const perShare = (totalEquityWorthCr / sharesDivisor) * 1.6;
+
+      const fairResult = Math.round(perShare);
+      document.getElementById('val-fair-target').innerHTML = `₹${fairResult.toLocaleString('en-IN')} <span class="text-xs text-neutral-500 font-normal">per share</span>`;
+
+      // Check spread
+      const spread = fairResult - co.price;
+      const discountPct = Math.round((spread / co.price) * 100);
+      const badge = document.getElementById('val-discount-badge');
+      if (spread >= 0) {
+        badge.innerText = `${discountPct}% Undervalued`;
+        badge.className = "text-xs font-mono font-bold px-3 py-1.5 border uppercase rounded-xl bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      } else {
+        badge.innerText = `${Math.abs(discountPct)}% Premium`;
+        badge.className = "text-xs font-mono font-bold px-3 py-1.5 border uppercase rounded-xl bg-red-500/10 text-red-400 border-red-500/20";
+      }
+
+      // Thesis block writer
+      const modelStance = spread >= 0 ? "attractive undervalued buying threshold with favorable growth cushions" : "fully valued or trading at margins exceeding baseline discount rates";
+      document.getElementById('val-thesis-box').innerText = `Audited thesis for ${co.ticker}: Calibrated cost of capital structure configured at ${wacc.toFixed(1)}% (WACC) alongside a Terminal Gordon rate of ${gTerm.toFixed(1)}%. Projected Stage 1 year 1-5 topline CAGR trades at ${g1.toFixed(1)}%. Based on continuous cash valuations, the common equity presents an ${modelStance} relative to current trading quotes. Intrinsic target evaluated at ₹${fairResult.toLocaleString('en-IN')}.`;
+    }
+
+    function handleSaveDcfParameters() {
+      const valStorageKey = `investiq_val_model_${selectedDetailId}`;
+      const wacc = parseFloat(document.querySelectorAll('input[type="range"]')[0].value);
+      const g1 = parseFloat(document.querySelectorAll('input[type="range"]')[1].value);
+      const gTerm = parseFloat(document.querySelectorAll('input[type="range"]')[2].value);
+
+      const dcfParameters = { wacc, g1, gTerm, timestamp: new Date().toLocaleTimeString() };
+      localStorage.setItem(valStorageKey, JSON.stringify(dcfParameters));
+      alert("✓ Parameters successfully saved to local Workspace backup node.");
+      navigate('valuation');
+    }
+
+    function restoreDcfBaseline() {
+      const valStorageKey = `investiq_val_model_${selectedDetailId}`;
+      localStorage.removeItem(valStorageKey);
+      navigate('valuation');
+    }
+
+    // Dynamic Radar SVG coordinates plotter
+    function generateRadarSVG(ids) {
+      const w = 160;
+      const h = 160;
+      const cx = w / 2;
+      const cy = h / 2;
+      const r = 60;
+      const numAxes = 5;
+      
+      let axisLinesHTML = '';
+      let outerPolygonPoints = '';
+      
+      // Concentric pentagons backgrounds
+      for (let scale = 0.25; scale <= 1; scale += 0.25) {
+        let pentPoints = [];
+        for (let i = 0; i < numAxes; i++) {
+          const angle = (i * 72 * Math.PI) / 180 - Math.PI / 2;
+          const px = cx + r * scale * Math.cos(angle);
+          const py = cy + r * scale * Math.sin(angle);
+          pentPoints.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+        }
+        axisLinesHTML += `<polygon points="${pentPoints.join(' ')}" fill="none" stroke="#26272b" stroke-width="1" />`;
+      }
+
+      // Draw axes axes lines
+      for (let i = 0; i < numAxes; i++) {
+        const angle = (i * 72 * Math.PI) / 180 - Math.PI / 2;
+        const ax = cx + r * Math.cos(angle);
+        const ay = cy + r * Math.sin(angle);
+        axisLinesHTML += `<line x1="${cx}" y1="${cy}" x2="${ax.toFixed(1)}" y2="${ay.toFixed(1)}" stroke="#26272b" stroke-width="1.2" />`;
+      }
+
+      // Plotted profiles
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
+      let dataPolygonsHTML = '';
+
+      ids.forEach((id, companyIdx) => {
+        const co = COMPANIES[id];
+        if (!co) return;
+
+        // Metric vectors scaled from 0.2 to 1.0 (roce, rev growth, margins, reverse pe, leverage)
+        const metrics = [
+          co.roce / 45,
+          co.revenueCagr3Y / 25,
+          0.16, // margins
+          (50 - co.peTtm) / 50, // relative inverse PE scaling
+          (3 - co.debtToEquity) / 3 // leverage health
+        ];
+
+        let coordPoints = [];
+        metrics.forEach((scale, i) => {
+          const angle = (i * 72 * Math.PI) / 180 - Math.PI / 2;
+          const cappedScale = Math.min(1.0, Math.max(0.15, scale));
+          const px = cx + r * cappedScale * Math.cos(angle);
+          const py = cy + r * cappedScale * Math.sin(angle);
+          coordPoints.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+        });
+
+        dataPolygonsHTML += `
+          <polygon points="${coordPoints.join(' ')}" fill="${colors[companyIdx]}" fill-opacity="0.12" stroke="${colors[companyIdx]}" stroke-width="1.8" />
+        `;
+      });
+
+      return `
+        <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">
+          ${axisLinesHTML}
+          ${dataPolygonsHTML}
+        </svg>
+      `;
+    }
+
+    // Dynamic autocomplete company search triggers
+    function filterRegistry() {
+      const q = document.getElementById('inventory-search').value.toLowerCase();
+      const sec = document.getElementById('sector-select').value;
+      const sig = document.getElementById('signal-select').value;
+
+      document.querySelectorAll('#registry-grid > div').forEach(card => {
+        const name = card.getAttribute('data-name');
+        const tick = card.getAttribute('data-ticker');
+        const cardSec = card.getAttribute('data-sector');
+        const cardSig = card.getAttribute('data-signal');
+
+        const matchText = name.includes(q) || tick.includes(q);
+        const matchSector = sec === 'All' || cardSec.includes(sec);
+        const matchSignal = sig === 'All' || cardSig === sig;
+
+        if (matchText && matchSector && matchSignal) {
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
+      });
+    }
+
+    // Dynamic formulations Question Engine packer
+    function renderQuestionPackFormulation(pack) {
+      const parent = document.getElementById('qp-formulation-deck');
+      if (!pack || pack.questions.length === 0) {
+        parent.innerHTML = `<div class="p-4 text-neutral-500 font-mono text-center text-[11px]">No formulations added. Insert target question parameters...</div>`;
+        return;
+      }
+
+      let html = '';
+      pack.questions.forEach((q, posIdx) => {
+        html += `
+          <div class="p-3 bg-neutral-950/45 border border-neutral-850 rounded-xl flex items-start gap-3 justify-between">
+            <div class="flex items-center gap-1.5 flex-1 min-w-0">
+              <span class="text-[10px] font-mono text-neutral-500 w-3 font-semibold">#${posIdx+1}</span>
+              <input type="text" value="${q.text}" onchange="updateFormulaText(${posIdx}, this.value)" class="bg-transparent text-xs text-neutral-200 outline-none w-full border-b border-transparent focus:border-blue-500">
+            </div>
+            
+            <div class="flex gap-1.5 shrink-0 select-none">
+              <button onclick="shiftFormulaOrder(${posIdx}, -1)" class="p-1 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-white" title="Move Up"><i data-lucide="chevron-up" class="w-3.5 h-3.5"></i></button>
+              <button onclick="shiftFormulaOrder(${posIdx}, 1)" class="p-1 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-white" title="Move Down"><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></button>
+              <button onclick="deleteFormulaQuery(${posIdx})" class="p-1 bg-neutral-900 border border-neutral-800 rounded-lg hover:text-red-400" title="Delete"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+        `;
+      });
+      parent.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function addNewCustomQuestion() {
+      const input = document.getElementById('new-query-input');
+      const val = input.value.trim();
+      if (!val) return;
+
+      let pack = qpHistory.find(pq => pq.companyId === selectedDetailId);
+      if (!pack) {
+        pack = { id: `qp-${selectedDetailId}-${Date.now()}`, companyId: selectedDetailId, companyName: COMPANIES[selectedDetailId].ticker, questions: [] };
+        qpHistory.push(pack);
+      }
+
+      pack.questions.push({ id: `q-${Date.now()}`, text: val });
+      input.value = '';
+      navigate('questions');
+    }
+
+    function updateFormulaText(idx, text) {
+      const pack = qpHistory.find(pq => pq.companyId === selectedDetailId);
+      if (pack && pack.questions[idx]) {
+        pack.questions[idx].text = text;
+      }
+    }
+
+    function shiftFormulaOrder(idx, diff) {
+      const pack = qpHistory.find(pq => pq.companyId === selectedDetailId);
+      if (!pack) return;
+      const targetIdx = idx + diff;
+      if (targetIdx < 0 || targetIdx >= pack.questions.length) return;
+
+      const temp = pack.questions[idx];
+      pack.questions[idx] = pack.questions[targetIdx];
+      pack.questions[targetIdx] = temp;
+      navigate('questions');
+    }
+
+    function deleteFormulaQuery(idx) {
+      const pack = qpHistory.find(pq => pq.companyId === selectedDetailId);
+      if (pack) {
+        pack.questions.splice(idx, 1);
+        navigate('questions');
+      }
+    }
+
+    function copyQuestionPackClipboard() {
+      const pack = qpHistory.find(pq => pq.companyId === selectedDetailId);
+      if (!pack || pack.questions.length === 0) return;
+
+      const strOut = pack.questions.map((q, idx) => `${idx+1}. ${q.text}`).join('\n');
+      navigator.clipboard.writeText(strOut).then(() => {
+        alert("✓ Formulation pack questions successfully copied to your OS clipboard.");
+      });
+    }
+
+    // Autocomplete searches Command Palette
+    function handleGlobalSearch(q) {
+      if (!q.trim()) return;
+      // Toggle to standard directory and filter
+      navigate('companies');
+      document.getElementById('inventory-search').value = q;
+      filterRegistry();
+    }
+
+    function togglePalette(visible) {
+      isPaletteOpen = visible;
+      const palette = document.getElementById('cmd-palette');
+      if (visible) {
+        palette.classList.remove('hidden');
+        document.getElementById('cmd-search').value = '';
+        renderPaletteList('');
+        document.getElementById('cmd-search').focus();
+      } else {
+        palette.classList.add('hidden');
+      }
+    }
+
+    function renderPaletteList(q) {
+      const parent = document.getElementById('cmd-list');
+      const filtered = Object.values(COMPANIES).filter(c => 
+        c.ticker.toLowerCase().includes(q.toLowerCase()) || 
+        c.name.toLowerCase().includes(q.toLowerCase())
+      );
+
+      let html = '';
+      if (filtered.length === 0) {
+        html = `<div class="p-3 text-neutral-500 font-mono text-center text-xs">No coverage nodes matched.</div>`;
+      } else {
+        filtered.forEach(c => {
+          html += `
+            <button onclick="executePaletteNavigation('${c.id}')" class="w-full text-left p-2.5 hover:bg-neutral-800/40 text-xs flex justify-between items-center transition-colors">
+              <div>
+                <strong class="text-neutral-100 font-mono">${c.ticker}</strong>
+                <span class="block text-[10px] text-neutral-500">${c.name} • ${c.sector}</span>
+              </div>
+              <span class="text-[9px] bg-neutral-900 border border-neutral-800 text-neutral-400 px-1 py-0.2 rounded font-mono">${c.exchange}</span>
+            </button>
+          `;
+        });
+      }
+      parent.innerHTML = html;
+    }
+
+    // Select pallet company route
+    function executePaletteNavigation(id) {
+      togglePalette(false);
+      // Link to Slot indices if in compare page slot search
+      if (currentTab === 'compare') {
+        const emptyIdx = selectedCompareIds.findIndex((c, i) => !c);
+        if (selectedCompareIds.includes(id)) {
+          alert("✓ Target comparable is already loaded in Slot selection.");
+          return;
+        }
+        if (emptyIdx !== -1) {
+          selectedCompareIds[emptyIdx] = id;
+        } else if (selectedCompareIds.length < 4) {
+          selectedCompareIds.push(id);
+        } else {
+          selectedCompareIds[3] = id; // overwrite slot 4
+        }
+        navigate('compare');
+      } else {
+        navigate('detail', id);
+      }
+    }
+
+    // Toggle tour onboarding steps tutorial
+    function toggleOnboarding(visible) {
+      const container = document.getElementById('onboarding-card');
+      if (visible) {
+        container.classList.remove('hidden');
+        renderTourOnboardingProgress();
+      } else {
+        container.classList.add('hidden');
+      }
+    }
+
+    function renderTourOnboardingProgress() {
+      const parent = document.getElementById('onboarding-card');
+      const steps = [
+        { title: "Search a Ticker (Cmd+K)", desc: "Trigger the Cmd+K system Command Palette index anytime from search bars to deep dive into unbilled ratios." },
+        { title: "Multi-Criteria Screener", desc: "Access dynamic slide filters under different multiples to test margins standard conversions." },
+        { title: "Pre-call formulation Packs", desc: "Build targeted management conference query decks with direct clipboard export metrics." }
+      ];
+
+      const item = steps[onboardingStep];
+      parent.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-center text-xs font-mono font-bold text-blue-400">
+            <span>Analyst Tour — Step ${onboardingStep+1} of 3</span>
+            <button onclick="toggleOnboarding(false)" class="text-neutral-500 hover:text-white p-0.5 hover:bg-neutral-800 rounded"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-neutral-200 mt-1">${item.title}</h4>
+            <p class="text-[10px] text-neutral-400 mt-1 leading-relaxed">${item.desc}</p>
+          </div>
+          <div class="flex items-center gap-1.5 progress-bullets">
+            ${[0,1,2].map(i => `<div class="h-1 flex-1 rounded-full ${i <= onboardingStep ? 'bg-blue-500' : 'bg-neutral-800'}"></div>`).join('')}
+          </div>
+          <div class="flex justify-between items-center pt-2.5">
+            <button onclick="toggleOnboarding(false)" class="text-[10px] font-mono hover:underline text-neutral-500 hover:text-neutral-300">Skip onboarding</button>
+            <button onclick="advanceOnboardingTour()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] rounded-lg flex items-center gap-1 transition-colors border border-blue-500">
+              <span>${onboardingStep === 2 ? 'Finish tour' : 'Continue'}</span> <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function advanceOnboardingTour() {
+      if (onboardingStep < 2) {
+        onboardingStep++;
+        renderTourOnboardingProgress();
+      } else {
+        onboardingStep = 0;
+        localStorage.setItem('investiq_tour_dismissed', 'true');
+        toggleOnboarding(false);
+      }
+    }
+
+    // Downloads feedback simulations
+    function handleDownloadAuditStatementSim(btn) {
+      const oText = btn.innerHTML;
+      btn.innerHTML = "<i data-lucide='check' class='w-3.5 h-3.5 text-emerald-500 mr-1 inline'></i> Mapped Checkpoint... Completed";
+      btn.className = "px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 font-bold text-xs rounded-xl flex items-center shrink-0";
+      setTimeout(() => {
+        btn.innerHTML = oText;
+        btn.className = "px-3 py-1.5 bg-neutral-800 hover:bg-neutral-750 text-neutral-300 border border-neutral-700 font-semibold text-xs rounded-xl flex items-center gap-1 shrink-0";
+        lucide.createIcons();
+      }, 1500);
+    }
+
+    // Ingestion simulation signals
+    function simulateInboundIngest() {
+      const status = document.getElementById('ingestion-status-log');
+      status.classList.remove('hidden');
+      status.className = "text-xs text-amber-500 font-mono text-center animate-pulse";
+      status.innerText = "Running taxonomic mapping scrapers against MCA databases...";
+      
+      setTimeout(() => {
+        status.className = "text-xs text-emerald-400 font-mono text-center";
+        status.innerText = "✓ 12 unbilled disclosures parsed, compiled, and mapped to Coverage RAM Cache.";
+      }, 1500);
+    }
+
+    // Global Key Listening (Ctrl+K etc)
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        togglePalette(!isPaletteOpen);
+      }
+      if (e.key === 'Escape' && isPaletteOpen) {
+        togglePalette(false);
+      }
+    });
+
+    function switchResearchTarget(id) {
+      selectedDetailId = id;
+      navigate('research');
+    }
+
+    function switchUnitEconomicsTarget(id) {
+      selectedDetailId = id;
+      navigate('unit-economics');
+    }
+
+    function switchQuestionTarget(id) {
+      selectedDetailId = id;
+      navigate('questions');
+    }
+
+    function switchValuationTarget(id) {
+      selectedDetailId = id;
+      navigate('valuation');
+    }
+
+    function handleSaveScreenerPreset() {
+      alert("✓ Filter settings saved: Maximum PE Limit " + currentScreenerPE + ".x and standard ROCE ROCE limit " + currentScreenerROCE + "% successfully added.");
+    }
+
+    // Clock update ticking
+    function tickClock() {
+      const clock = document.getElementById('clock-tick');
+      if (clock) {
+        const d = new Date();
+        clock.innerText = d.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+      }
+    }
+
+    // Bootstrap local setup
+    window.onload = () => {
+      // Check onboarding tour dismissal
+      const dismissed = localStorage.getItem('investiq_tour_dismissed');
+      if (!dismissed) {
+        toggleOnboarding(true);
+      }
+      navigate('dashboard');
+      setInterval(tickClock, 1000);
+    };
+  </script>
+</body>
+</html>

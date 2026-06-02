@@ -1,0 +1,6 @@
+{
+  "name": "InvestIQ",
+  "description": "AI-first equity research platform for analysts covering NSE/BSE Indian companies, featuring custom screenings, validation engine, valuation models, research hub, and automatic questions packs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
